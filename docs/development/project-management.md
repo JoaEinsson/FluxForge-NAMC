@@ -9,7 +9,9 @@ GitHub is the intended public system of record:
 - Pull requests hold reviewable changes and validation evidence.
 - ADRs hold durable, consequential technical decisions.
 - Milestones mirror roadmap phases.
-- A GitHub Project may visualize status without replacing issue history.
+- The public
+  [FluxForge-NAMC Roadmap](https://github.com/users/JoaEinsson/projects/3)
+  visualizes status without replacing issue history.
 
 ## Recommended issue states
 
