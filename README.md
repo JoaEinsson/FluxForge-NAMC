@@ -44,7 +44,9 @@ independent safety layer retains final authority.
 
 The complete project intent and boundaries are summarized in the
 [project charter](docs/project-charter.md). Capability phases and their exit
-criteria are tracked in the [roadmap](ROADMAP.md).
+criteria are tracked in the [roadmap](ROADMAP.md), while current work is
+organized in the
+[public GitHub Project](https://github.com/users/JoaEinsson/projects/3).
 
 ## Current repository scope
 
