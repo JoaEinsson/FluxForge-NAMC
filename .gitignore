@@ -1,0 +1,46 @@
+# Local source brief retained outside the English-language project history.
+/prompt_inicial.md
+
+# Build outputs
+/build/
+/build-*/
+/out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Compiled artifacts
+*.a
+*.dll
+*.dylib
+*.exe
+*.lib
+*.o
+*.obj
+*.so
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Test, coverage, and generated experiment outputs
+.coverage
+coverage/
+htmlcov/
+results/
+logs/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Codex and local agent runtime artifacts
+.codex-log/

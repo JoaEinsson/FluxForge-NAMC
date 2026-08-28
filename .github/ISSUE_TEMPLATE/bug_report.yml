@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible defect in code, documentation, tests, or simulation.
+title: "bug: "
+labels:
+  - "type: bug"
+  - "status: needs-triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Use the private process in SECURITY.md.
+        This project is simulation-only and does not provide physical hardware support.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the observed defect and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide minimal steps, commands, configuration, and seed.
+      placeholder: |
+        1. Check out revision ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: evidence
+    attributes:
+      label: Evidence level
+      options:
+        - Documentation only
+        - Analytical reasoning
+        - Unit or numerical test
+        - Software simulation
+        - Hardware-in-the-loop
+        - Bench or dynamometer
+        - Vehicle
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include revision, OS, compiler, Python, configuration, and relevant dependencies.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety or numerical implications
+      description: Note invalid outputs, limit bypass, NaN/Inf, instability, or claim risk. Write "None known" when not applicable.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched for an existing issue.
+          required: true
+        - label: I removed secrets, personal data, and confidential information.
+          required: true
+        - label: This is not a private security vulnerability report.
+          required: true

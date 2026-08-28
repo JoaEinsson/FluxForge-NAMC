@@ -1,0 +1,71 @@
+name: Feature request
+description: Propose a scoped project capability or improvement.
+title: "feat: "
+labels:
+  - "type: feature"
+  - "status: needs-triage"
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete problem or unmet capability should be addressed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe observable behavior and boundaries, not only an implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: roadmap
+    attributes:
+      label: Roadmap area
+      options:
+        - Governance foundation
+        - Repository and toolchain
+        - Linear reference system
+        - Nonlinear magnetic plant
+        - Model-aware control
+        - Identification
+        - Adaptive magnetic surface
+        - Inverter and sensors
+        - Thermal and battery
+        - Optimization
+        - Monte Carlo evidence
+        - Embedded portability
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include simpler baselines and reasons they are insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: What tests, metrics, or artifacts would demonstrate completion?
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and compatibility
+      description: Cover physics, numerical, safety, portability, API, dependency, and licensing impact.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the roadmap.
+          required: true
+        - label: I am not claiming unperformed hardware validation or certification.
+          required: true

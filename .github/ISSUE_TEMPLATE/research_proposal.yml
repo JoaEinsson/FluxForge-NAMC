@@ -1,0 +1,55 @@
+name: Research proposal
+description: Propose an experiment, identification method, model, dataset, or comparison.
+title: "research: "
+labels:
+  - "type: research"
+  - "status: needs-triage"
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Research question or hypothesis
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Proposed method
+      description: Describe observables, hidden truth, model family, excitation, and analysis.
+    validations:
+      required: true
+  - type: textarea
+    id: baselines
+    attributes:
+      label: Baselines and comparisons
+      description: Include constant-parameter or other credible reference methods.
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics and failure criteria
+      description: Define success, non-convergence, invalid-model, and safety outcomes before running the experiment.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducibility
+    attributes:
+      label: Reproducibility plan
+      description: State configuration, seed, dataset provenance, versions, and retained artifacts.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Numerical, safety, and ethical risks
+      description: Include observability limits, overfitting, model mismatch, unsafe excitation, or misleading claims.
+    validations:
+      required: true
+  - type: textarea
+    id: integration
+    attributes:
+      label: Expected reusable result
+      description: Identify tests, code, documentation, dataset, or decision expected from the research.
+    validations:
+      required: true
