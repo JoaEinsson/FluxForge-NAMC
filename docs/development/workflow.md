@@ -10,7 +10,7 @@ unstable before `1.0.0`.
 
 - Create a short-lived branch from current `main`.
 - Use a descriptive branch name such as `docs/governance-foundation` or
-  `feat/nonlinear-coenergy`.
+  `feat/coupled-flux-maps`.
 - Keep a pull request focused on one coherent result.
 - Draft pull requests are encouraged for early architecture or research review.
 - Prefer squash merge after required review and checks pass.

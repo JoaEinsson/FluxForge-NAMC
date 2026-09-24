@@ -10,10 +10,17 @@
 ## Development
 
 - [Development Workflow](development/workflow.md)
+- [Build and Test](development/build.md)
 - [Project Management](development/project-management.md)
 - [Repository Setup](development/repository-setup.md)
 - [AI-Assisted Development](development/ai-assisted-development.md)
 - [Architecture Decision Records](adr/README.md)
+
+## Accepted technical direction
+
+- [Coupled Flux-Linkage Maps (ADR-0004)](adr/0004-use-coupled-flux-linkage-maps.md)
+  defines the planned saturation and cross-saturation representation and its
+  identification workflow. The magnetic implementation remains planned.
 
 ## Planned technical documentation
 
