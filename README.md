@@ -2,7 +2,7 @@
 
 **Adaptive Nonlinear Motor Control & Identification Platform**
 
-FluxForge-NAMC is an open-source research and development project for the
+FluxForge-NAMC is an open-source engineering project for the
 identification, nonlinear magnetic modeling, adaptive control, and constrained
 optimization of electric motors for vehicle-oriented applications.
 
@@ -13,21 +13,28 @@ optimization of electric motors for vehicle-oriented applications.
 
 ## Core idea
 
-The project is not intended to be another constant-parameter field-oriented
-controller. Its central objective is to let a controller progressively build
-and validate an effective nonlinear electromagnetic model of a partially known
-motor, including saturation and cross-saturation. The model should expose the
-local flux linkages and full incremental magnetic matrix:
+The central objective is to characterize a partially known motor, build a
+usable nonlinear magnetic model, and refine it through identification. For
+the initial PMSM scope, the primary representation is a pair of coupled
+flux-linkage maps stored as lookup tables (LUTs):
 
 ```text
-               [ Ldd  Ldq ]
-psi_d, psi_q,  [          ]
-               [ Lqd  Lqq ]
+FluxD(id, iq) -> psi_d
+FluxQ(id, iq) -> psi_q
 ```
 
-That local model will support identification, current control, torque
-estimation, operating-envelope calculation, and optimization while an
-independent safety layer retains final authority.
+Both maps depend on both currents so they can capture saturation and
+cross-saturation. The planned workflow covers data acquisition or import,
+fitting, table generation, and evidence-based corrections as identification
+improves coverage. The maps will support current control, torque estimation,
+operating-envelope calculation, and optimization while an independent safety
+layer retains final authority.
+
+Incremental inductances and a local 2x2 Jacobian may be derived when an
+algorithm needs them; they do not define the table dimensions or a mandatory
+interface for every subsystem. Coenergy is an optional modeling or fitting
+tool. See [ADR-0004](docs/adr/0004-use-coupled-flux-linkage-maps.md) for the
+accepted direction and the choices still open.
 
 ## Engineering direction
 
@@ -57,10 +64,13 @@ The initial repository establishes:
 - security, support, conduct, and research-safety boundaries;
 - an auditable workflow for human and AI-assisted development;
 - architecture decision records and capability-based roadmap planning;
-- GitHub issue and pull-request templates.
+- GitHub issue and pull-request templates;
+- an experimental, pre-1.0 portable C11 `namc_core` metadata library, a
+  shared-library Python binding, and CMake/CTest tests
+  ([build instructions](docs/development/build.md)).
 
-The build system, C libraries, simulation plant, Python bindings, tests, and
-first executable experiments are planned for the next development phase.
+The simulation plant, functional motor-model bindings, controller, and first
+executable motor experiments remain planned for later development phases.
 
 ## Safety boundary
 

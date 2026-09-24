@@ -1,7 +1,7 @@
 # Contributing to FluxForge-NAMC
 
-Thank you for helping build FluxForge-NAMC. This is a research-oriented motor
-control project with safety-relevant long-term ambitions, so reproducibility,
+Thank you for helping build FluxForge-NAMC. This is a motor-control engineering
+project with safety-relevant long-term ambitions, so reproducibility,
 physical correctness, numerical evidence, and honest capability claims matter
 as much as code quality.
 
@@ -63,7 +63,8 @@ When implementation begins:
 - SI units and coordinate-transform conventions are explicit;
 - plant truth remains structurally inaccessible to the controller and
   identifier;
-- cross-saturation terms are not silently discarded;
+- coupled flux maps retain saturation and cross-saturation; incremental
+  matrices are derived only where needed by an algorithm;
 - NaN, infinity, singular matrices, and invalid models cannot propagate
   silently to modulation outputs.
 
@@ -78,7 +79,7 @@ imperative summaries. Examples:
 
 ```text
 docs: define founder-led governance
-feat(magnetic): add nonlinear coenergy evaluator
+feat(magnetic): add coupled flux-map lookup
 test(transforms): verify power-invariant convention
 ```
 

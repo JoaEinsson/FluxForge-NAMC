@@ -30,6 +30,13 @@ validation dependency remains unresolved.
 No `1.0.0` criteria have been defined. Hardware readiness is not implied by
 any phase below.
 
+The magnetic-model direction is coupled flux-linkage lookup tables, initially
+`FluxD(id, iq)` and `FluxQ(id, iq)`, with extraction, fitting, and progressive
+correction from identification data. Local incremental matrices are derived
+when needed by a selected algorithm; coenergy is an optional modeling or
+fitting tool. [ADR-0004](docs/adr/0004-use-coupled-flux-linkage-maps.md) records
+this decision. The magnetic capabilities below remain planned.
+
 ## G0 — Governance foundation
 
 ### Scope
@@ -89,26 +96,35 @@ any phase below.
 
 ### Scope
 
-- coenergy-based analytical backend;
-- flux gradients and full 2x2 Hessian evaluation;
-- progressive saturation and cross-saturation;
+- coupled `FluxD(id, iq)` and `FluxQ(id, iq)` lookup-table backend;
+- map import and validation with units, conventions, domain, and provenance;
+- analytical reference fixtures and linear-limit cases for testing;
+- saturation and cross-saturation across the mapped current domain;
 - nonlinear electrical dynamics and model-domain validation;
-- derivative, reciprocity, determinant, and energy-consistency tests.
+- interpolation, flux, torque, and energy-consistency tests, including local
+  derivative and reciprocity checks where required by the chosen formulation.
 
 ### Exit criteria
 
-- `Ldq` and `Lqd` are measurable and not artificially zeroed;
-- analytical derivatives agree with numerical test oracles within documented
-  tolerances;
-- singular and nonphysical local models produce deterministic diagnostics;
+- the maps preserve dependence on both currents and reproduce reference
+  cross-saturation cases;
+- flux and torque predictions meet documented tolerances at reference points
+  and at points not used for fitting;
+- derivatives, when used, agree with independent test oracles and retain
+  cross-coupling terms;
+- invalid data, unsupported operating points, and any singular matrix solves
+  produce deterministic diagnostics;
 - the linear backend is recovered as a controlled special case.
 
 ## Phase 3 — Model-aware current control
 
 ### Scope
 
-- deterministic controller using local flux and the full incremental matrix;
-- bounded 2x2 inversion with fallback;
+- deterministic controller using accepted flux maps for model-based
+  compensation and tuning;
+- local sensitivities only as required by the selected control algorithm,
+  with documented derivative evaluation and bounded computation;
+- invalid-model fallback and conditioning checks for any matrix solves;
 - auto-tuning constrained by sample rate, bandwidth, voltage, and current;
 - controlled comparison with the baseline PI controller.
 
@@ -125,14 +141,18 @@ any phase below.
 
 - identification state machine and confidence reporting;
 - low-energy stator-resistance estimation;
-- local full-matrix estimation using safe independent excitation;
+- excitation and estimation of coupled magnetic response over sampled current
+  operating points, including the references needed to reconstruct flux maps;
 - permanent-magnet flux estimation under observable conditions;
+- map-fitting observations with coverage, uncertainty, and acquisition metadata;
 - candidate validation, degradation, and fault states.
 
 ### Exit criteria
 
 - controller inputs contain only simulated vehicle-observable measurements;
 - truth-versus-estimate tests quantify error and observability;
+- the procedure distinguishes observed map regions from unsupported regions
+  and does not claim a complete map from insufficient excitation;
 - non-convergence leads to degraded or fault behavior rather than unsafe
   continuation;
 - inverter voltage error is not silently absorbed into magnetic parameters.
@@ -141,8 +161,12 @@ any phase below.
 
 ### Scope
 
-- compact basis or tensor-product spline representation of coenergy;
-- regularized fitting and confidence over the identified domain;
+- initial flux-map fitting and progressive correction from identification data;
+- coupled LUT generation with regularized fitting, coverage, and confidence
+  over the identified domain;
+- selection of grid resolution and interpolation using prediction error,
+  physical consistency, memory, and runtime cost;
+- optional coenergy-constrained fitting when supported by the model assumptions;
 - active/candidate model separation, validation, atomic activation, and
   rollback;
 - bounded extrapolation and conservative fallback models;
@@ -150,9 +174,12 @@ any phase below.
 
 ### Exit criteria
 
-- the model derives flux and Hessian analytically in runtime code;
-- physical smoothness, reciprocity, curvature, and determinant checks gate
-  activation;
+- bounded runtime lookup is separated from fitting and candidate validation;
+- candidates meet documented flux, torque, and closed-loop acceptance criteria
+  on held-out points and scenarios;
+- domain, finite-value, interpolation, and physical-consistency checks gate
+  activation; derivative, reciprocity, curvature, and conditioning checks apply
+  where required by the selected formulation;
 - candidate rejection and rollback are tested;
 - memory and execution costs are reported for representative map sizes.
 
@@ -194,6 +221,8 @@ any phase below.
 
 - map-based MTPA, field weakening, voltage-constrained operation, and MTPV
   where applicable;
+- generation of control-reference current tables from accepted magnetic maps
+  and the applicable voltage, current, and loss models;
 - dynamic torque/current/power envelope;
 - configurable ECO, NORMAL, and SPORT objective weights;
 - bounded firmware-suitable lookup or solver methods.

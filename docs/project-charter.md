@@ -10,7 +10,7 @@
 
 ## Mission
 
-FluxForge-NAMC exists to research and implement a portable platform that can
+FluxForge-NAMC exists to implement a portable platform that can
 observe a partially known motor and inverter, identify their effective
 electromagnetic behavior, build and validate a nonlinear magnetic model,
 configure control from that model, and optimize operation within independent
@@ -26,18 +26,37 @@ The primary model must not be reduced to constant `Ld`, constant `Lq`, constant
 stator resistance, and constant permanent-magnet flux. Those assumptions may
 exist as baselines, analytical fixtures, and conservative fallbacks.
 
-The central representation is an effective nonlinear magnetic model, ideally
-derived from coenergy:
+For the initial PMSM scope, the central representation is a pair of coupled
+flux-linkage maps stored as lookup tables (LUTs):
 
 ```text
-W'(id, iq) -> psi_d, psi_q -> [ Ldd  Ldq ]
-                           -> [ Lqd  Lqq ]
+FluxD(id, iq) -> psi_d
+FluxQ(id, iq) -> psi_q
 ```
 
-The full local incremental matrix is a first-class input to identification,
-control, torque estimation, and optimization. Saturation and cross-saturation
-must be representable and measurable. Temperature and electrical-angle
-dimensions may be introduced progressively without invalidating public APIs.
+Both maps depend on both currents. Saturation and cross-saturation must remain
+representable throughout characterization, fitting, runtime lookup, and
+subsequent correction. Data may originate from analytical fixtures, simulation,
+FEA, or measurements, with provenance and evidence level kept explicit. New
+hardware characterization remains subject to the existing safety scope.
+
+The intended workflow is to obtain an initial map, quantify its error, and
+refine it using sufficiently informative observations. Runtime tables and any
+derived control-reference tables are generated from accepted model candidates.
+Fitting and candidate validation run outside the fast control path.
+
+Incremental inductances and a local 2x2 Jacobian are derived quantities for
+algorithms that need local sensitivities. They are neither the map's storage
+shape nor a mandatory interface for identification, torque estimation, and
+optimization. Coenergy may provide a reference model or constrain a fit; it is
+not the only permitted representation. Table resolution, interpolation, fitting,
+and identification methods will be selected against accuracy, observability,
+memory, and execution requirements. See
+[ADR-0004](adr/0004-use-coupled-flux-linkage-maps.md).
+
+Temperature and electrical-angle dimensions may be introduced progressively
+when the available data and application justify them. This direction does not
+establish a stable API or serialization compatibility promise.
 
 ## System concept
 
@@ -51,10 +70,10 @@ partially known motor and inverter
       bounded identification process
                 |
                 v
-  validated nonlinear magnetic model
+  fitted and validated flux-linkage maps
                 |
                 v
- local flux and 2x2 linearization
+ bounded lookup and derived control data
                 |
                 v
  model-aware current and torque control
@@ -101,8 +120,10 @@ The first major proof of concept should show that a controller can:
 1. receive only realistic measurements from a hidden nonlinear virtual motor;
 2. begin with an inaccurate but conservative prior model;
 3. execute bounded low-energy identification;
-4. estimate local resistance, flux, and full incremental magnetic behavior;
-5. refine a physically coherent model with confidence information;
+4. estimate resistance and observable coupled magnetic behavior over sampled
+   operating points;
+5. build and refine physically coherent flux-linkage maps with coverage and
+   confidence information;
 6. auto-configure control and maintain stable, limited operation;
 7. fall back deterministically when identification or model validation fails.
 

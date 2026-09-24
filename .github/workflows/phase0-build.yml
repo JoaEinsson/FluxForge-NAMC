@@ -1,0 +1,53 @@
+name: Phase 0 build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cmake:
+    name: ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            c_compiler: gcc
+          - compiler: Clang
+            c_compiler: clang
+
+    env:
+      CC: ${{ matrix.c_compiler }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependency
+        run: python -m pip install 'pytest>=8,<9'
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DNAMC_WARNINGS_AS_ERRORS=ON
+          -DNAMC_REQUIRE_PYTEST=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

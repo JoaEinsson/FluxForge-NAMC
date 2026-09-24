@@ -4,8 +4,15 @@
 
 FluxForge-NAMC is an Adaptive Nonlinear Motor Control & Identification
 Platform. Its defining feature is a physically coherent nonlinear magnetic
-model whose local flux and full 2x2 incremental matrix are used by
-identification, control, and optimization.
+model built from coupled flux-linkage maps that represent saturation and
+cross-saturation. The initial PMSM direction uses `FluxD(id, iq)` and
+`FluxQ(id, iq)` lookup tables, fitted and progressively corrected using
+identification data, to support control and optimization.
+
+Local incremental inductances and a 2x2 Jacobian are derived quantities when
+an algorithm needs them, not the global map's storage shape or a mandatory
+interface for every subsystem. Coenergy is optional, not the only permitted
+model or fitting method. Follow `docs/adr/0004-use-coupled-flux-linkage-maps.md`.
 
 ## Read before changing the repository
 
@@ -51,10 +58,16 @@ Do not treat planned roadmap text as implemented behavior.
 - Keep controller, plant truth, platform code, bindings, tests, and tools
   structurally separate.
 - Never expose hidden plant parameters to controller or identifier code.
-- Do not reduce the primary magnetic model to constant `Ld`/`Lq` or force
-  `Ldq`/`Lqd` to zero. Linear models are baselines and fallbacks only.
-- Validate determinants, domains, finite values, limits, and model versions.
-  Invalid numerical state must not propagate silently to PWM or duty outputs.
+- Preserve the dependence of both flux maps on both currents. Do not silently
+  replace them with independent per-axis curves or constant `Ld`/`Lq`.
+  Linear models are baselines and fallbacks only. When derivatives are used,
+  retain the model's cross-coupling terms rather than forcing them to zero.
+- Validate map domains, finite values, limits, and model versions. Check
+  conditioning and determinants before any matrix inversion. Invalid numerical
+  state must not propagate silently to PWM or duty outputs.
+- Keep map fitting and candidate validation outside the fast control path.
+  Record data provenance, coverage, and uncertainty; validate corrections before
+  activating them, with deterministic rejection and rollback behavior.
 - Adaptive estimation and optimization remain subordinate to independent hard
   safety constraints and validated fallback behavior.
 - No hardware, road-use, certification, or performance claim may exceed the
