@@ -1,15 +1,15 @@
 # Build and Test
 
-This document covers the first Phase 0 implementation slice. It builds the
-experimental, pre-1.0 `namc_core` metadata API, a shared library for the
-Python binding, and their tests. No motor-control, plant, controller, or
-hardware behavior is included.
+This document covers the Phase 0 foundation and first Phase 1 slice. It builds
+the experimental, pre-1.0 core, shared binding library, separate linear plant,
+native closed-loop simulator and tests. All motor behavior is simulation-only;
+see the [linear reference guide](linear-reference.md).
 
 ## Prerequisites
 
 - CMake 3.20 or newer;
 - a C11 compiler (GCC and Clang are exercised in continuous integration);
-- Python 3.10 or newer and pytest 8.x for the optional local binding test.
+- Python 3.10 or newer and pytest 8.x for optional binding/orchestration tests.
 
 ## Clean configure, build, and test
 
@@ -30,7 +30,7 @@ ctest --test-dir build-clang --output-on-failure
 ```
 
 Install pytest in a separate development environment before configuring. To
-run only the C test, omit `-DNAMC_REQUIRE_PYTEST=ON`; CMake then skips the
+run only the C tests, omit `-DNAMC_REQUIRE_PYTEST=ON`; CMake then skips the
 Python binding test when Python or pytest is unavailable. CI requires both.
 
 The Python package is under `python/fluxforge_namc`. Its `CoreLibrary` takes
@@ -53,3 +53,11 @@ with `--config Debug`, run CTest with `-C Debug`, and point `CoreLibrary` to
 The `build` and `build-*` directories are local generated output and are
 ignored by Git. The current API is experimental; a successful build is not
 evidence of motor-control or hardware readiness.
+
+The suite includes `namc_core_api`, `namc_linear_reference`, `namc_sim_smoke`,
+and `namc_python_binding` (including native simulator orchestration).
+CTest passes explicit DLL and executable paths through `NAMC_CORE_LIBRARY`
+and `NAMC_SIM_EXECUTABLE`; Python never substitutes its own motor equations.
+Existing GCC/Clang CI jobs exercise these added targets without changing
+their status-check names. Local Windows evidence is recorded
+[separately](phase1-evidence.md).

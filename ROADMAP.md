@@ -15,8 +15,8 @@ validation dependency remains unresolved.
 | Phase | State | Intended release |
 | --- | --- | --- |
 | G0 — Governance foundation | Complete | Initial commit |
-| 0 — Repository and toolchain foundation | Planned | `0.1.0` candidate |
-| 1 — Linear reference system | Planned | Pre-`1.0` |
+| 0 — Repository and toolchain foundation | In progress | `0.1.0` candidate |
+| 1 — Linear reference system | In progress | Pre-`1.0` |
 | 2 — Nonlinear magnetic plant | Planned | Pre-`1.0` |
 | 3 — Model-aware current control | Planned | Pre-`1.0` |
 | 4 — Local identification | Planned | Pre-`1.0` |
@@ -76,6 +76,13 @@ this decision. The magnetic capabilities below remain planned.
 - version, seed, and configuration can be recorded for experiments.
 
 ## Phase 1 — Linear reference system
+
+The first implementation slice includes a native closed-loop reference,
+analytical and guard tests, and Python orchestration. See the
+[linear reference guide](docs/development/linear-reference.md) and
+[local evidence](docs/development/phase1-evidence.md). Phase completion still
+requires review of the proposed conventions and CI evidence for this patch;
+local simulation results do not imply hardware validation.
 
 ### Scope
 
