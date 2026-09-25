@@ -10,6 +10,7 @@ include(NamcWarnings)
 add_library(namc_core STATIC
     src/core/core.c
     src/core/reference.c
+    src/core/flux_map.c
 )
 
 target_compile_features(namc_core PUBLIC c_std_11)
@@ -27,6 +28,7 @@ namc_enable_strict_warnings(namc_core)
 add_library(namc_core_binding SHARED
     src/core/core.c
     src/core/reference.c
+    src/core/flux_map.c
 )
 target_compile_features(namc_core_binding PUBLIC c_std_11)
 target_compile_definitions(namc_core_binding PRIVATE NAMC_CORE_SHARED_BUILD)
@@ -42,7 +44,7 @@ set_target_properties(namc_core_binding PROPERTIES
 namc_enable_strict_warnings(namc_core_binding)
 
 # The portable controller has no include path or dependency on plant truth.
-add_library(namc_plant STATIC src/plant/linear_plant.c)
+add_library(namc_plant STATIC src/plant/linear_plant.c src/plant/magnetic_plant.c)
 target_include_directories(namc_plant PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/plant/include")
 target_link_libraries(namc_plant PUBLIC namc_core)
 target_compile_features(namc_plant PUBLIC c_std_11)
@@ -53,7 +55,7 @@ if(UNIX)
     target_link_libraries(namc_core_binding PRIVATE m)
 endif()
 
-add_executable(namc_sim simulations/linear_reference.c)
+add_executable(namc_sim simulations/linear_reference.c simulations/map_transport.c)
 target_link_libraries(namc_sim PRIVATE namc_plant)
 set_target_properties(namc_sim PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
 namc_enable_strict_warnings(namc_sim)
@@ -106,6 +108,13 @@ if(BUILD_TESTING)
     namc_enable_strict_warnings(namc_reference_test)
     add_test(NAME namc_linear_reference COMMAND namc_reference_test)
     add_test(NAME namc_sim_smoke COMMAND namc_sim)
+
+    add_executable(namc_flux_map_test tests/flux_map_test.c)
+    target_link_libraries(namc_flux_map_test PRIVATE namc_plant)
+    set_target_properties(namc_flux_map_test PROPERTIES
+        C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+    namc_enable_strict_warnings(namc_flux_map_test)
+    add_test(NAME namc_coupled_flux_map COMMAND namc_flux_map_test)
 
     option(NAMC_REQUIRE_PYTEST "Fail configuration when pytest is unavailable" OFF)
     find_package(Python3 3.10 COMPONENTS Interpreter QUIET)

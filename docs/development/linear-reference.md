@@ -122,8 +122,10 @@ initial conditions, model/core versions, compiler/build configuration, and a con
 revision/dirty marker. Reconfigure after source changes. A dirty marker is
 not a content hash: retain the source diff or commit before treating a run as
 archival/reproducible evidence. No stable report serialization is promised.
-The scenario accepts CLI overrides only for the six options shown above;
-other parameters are fixed in the recorded source revision.
+The scenario also accepts `--id` (default 0 A) and `--trace-stride` (default 0,
+disabled). `--plant linear` is the default; the map-backed mode and report
+trace semantics are described in [magnetic experiments](magnetic-experiments.md).
+Other parameters are fixed in the recorded source revision.
 
 The seed selects only initial electrical angle with one modulo-2^32 LCG draw
 (`1664525*seed + 1013904223`), scaled by `2*pi/2^32`. It is not a Monte Carlo
@@ -132,7 +134,8 @@ reports; cross-compiler bitwise equivalence is not promised. RMS metrics use
 post-step dq current errors; tail RMS covers the last half of samples.
 
 CLI domains: 2..1,000,000 steps, 32-bit unsigned seed, 1e-7..1e-4 s sample time,
-q reference +/-10 A, 12..60 V bus, and +/-2 N m load. Domain-valid input is not
+d/q references each +/-10 A with magnitude at most 12 A, 12..60 V bus, and
++/-2 N m load. Domain-valid input is not
 a promise that every run remains within current/speed limits. A failed run
 exits nonzero with a step diagnostic and emits no success JSON.
 
@@ -147,7 +150,8 @@ step-size refinement, duty bounds, and saturation recovery.
 This is not a speed controller, nonlinear model, fault-tolerant supervisor,
 embedded timing demonstration, hardware experiment, or validation of a real
 motor. Acceptance thresholds apply only to these synthetic fixtures. Phase 2
-will add the coupled flux maps specified in ADR-0004.
+adds a separate [coupled-map plant](flux-maps.md), not a change to the linear
+baseline physics described here.
 
 ## Equation references and provenance
 

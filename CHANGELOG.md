@@ -10,6 +10,14 @@ once versioned releases begin.
 
 ### Added
 
+- Configurable imported-map experiments in the native simulator, full-map
+  replay reports, bounded decimated traces, torque diagnostics and a Python CLI
+  for comparing nonlinear/linear plants with the same independent nominal PI.
+- Experimental coupled flux-linkage LUTs with offline data/physical validation,
+  bounded bilinear lookup, analytical interpolant derivatives and conditioned solves.
+- Nonlinear current-state plant with domain-checked RK4, synthetic cross-saturation
+  and linear-limit tests, plus Python import/query bindings using the native C backend.
+
 - Initial governance, licensing, contribution, security, support, and conduct
   policies.
 - Project charter, capability-based roadmap, safety scope, and development
