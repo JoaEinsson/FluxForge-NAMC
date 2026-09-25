@@ -7,8 +7,8 @@ identification, nonlinear magnetic modeling, adaptive control, and constrained
 optimization of electric motors for vehicle-oriented applications.
 
 > **Project status: pre-alpha and simulation-only.** The repository is in its
-> governance and engineering-foundation stage. It does not yet contain a
-> functional motor controller, and nothing in this repository is approved for
+> engineering-foundation stage, with an experimental linear current-control
+> simulation. Nothing in this repository is approved for
 > use on a physical vehicle or power inverter.
 
 ## Core idea
@@ -67,10 +67,14 @@ The initial repository establishes:
 - GitHub issue and pull-request templates;
 - an experimental, pre-1.0 portable C11 `namc_core` metadata library, a
   shared-library Python binding, and CMake/CTest tests
-  ([build instructions](docs/development/build.md)).
+  ([build instructions](docs/development/build.md));
+- a Phase 1 linear PMSM baseline, PI current control, transforms, bounded
+  modulation, average inverter, and deterministic native simulator with
+  Python orchestration ([linear reference](docs/development/linear-reference.md)).
 
-The simulation plant, functional motor-model bindings, controller, and first
-executable motor experiments remain planned for later development phases.
+Coupled nonlinear flux maps, identification, adaptive control, nonideal
+inverters/sensors, and hardware integration remain planned. The linear
+reference is a comparison baseline, not the project's primary magnetic model.
 
 ## Safety boundary
 

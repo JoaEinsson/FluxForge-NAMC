@@ -20,6 +20,11 @@ once versioned releases begin.
 - GitHub issue, pull-request, and ownership templates.
 - Experimental, pre-1.0 portable C11 `namc_core` metadata API with CMake,
   CTest, a shared-library Python binding, and GCC/Clang CI foundation.
+- Experimental Phase 1 linear PMSM reference, PI current control, Clarke/Park
+  transforms, bounded common-mode modulation, average inverter, and fixed-step
+  C simulator with deterministic configuration/seed reports and Python orchestration.
+- Analytical physics, power, numerical-guard, saturation-recovery, tracking,
+  and reproducibility regression tests; proposed conventions in ADR-0005.
 
 ### Changed
 
