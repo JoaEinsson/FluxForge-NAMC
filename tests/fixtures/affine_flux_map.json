@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "units": "SI",
+  "convention": "amplitude-invariant-dq",
+  "id_A": [-4, 0, 4],
+  "iq_A": [-4, 0, 4],
+  "psi_d_Wb": [[0.0364, 0.038, 0.0396], [0.0484, 0.05, 0.0516], [0.0604, 0.062, 0.0636]],
+  "psi_q_Wb": [[-0.0176, -0.0016, 0.0144], [-0.016, 0, 0.016], [-0.0144, 0.0016, 0.0176]],
+  "evidence": "analytical",
+  "source_id": "project-original-affine-parser-fixture-v1-not-measured",
+  "temperature_K": 293.15,
+  "declared_flux_error_Wb": 0
+}

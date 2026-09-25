@@ -7,8 +7,8 @@ identification, nonlinear magnetic modeling, adaptive control, and constrained
 optimization of electric motors for vehicle-oriented applications.
 
 > **Project status: pre-alpha and simulation-only.** The repository is in its
-> engineering-foundation stage, with an experimental linear current-control
-> simulation. Nothing in this repository is approved for
+> engineering-foundation stage, with experimental linear and coupled-map
+> current-control simulations. Nothing in this repository is approved for
 > use on a physical vehicle or power inverter.
 
 ## Core idea
@@ -70,9 +70,15 @@ The initial repository establishes:
   ([build instructions](docs/development/build.md));
 - a Phase 1 linear PMSM baseline, PI current control, transforms, bounded
   modulation, average inverter, and deterministic native simulator with
-  Python orchestration ([linear reference](docs/development/linear-reference.md)).
+  Python orchestration ([linear reference](docs/development/linear-reference.md));
+- an experimental coupled flux-LUT backend with guarded lookup, Python JSON
+  import, a separate nonlinear plant, and synthetic cross-saturation tests
+  ([flux-map guide](docs/development/flux-maps.md));
+- a configurable native experiment runner for imported maps, replayable
+  reports, bounded traces and linear-plant comparisons
+  ([magnetic experiments](docs/development/magnetic-experiments.md)).
 
-Coupled nonlinear flux maps, identification, adaptive control, nonideal
+Identification, map fitting/correction, adaptive control, nonideal
 inverters/sensors, and hardware integration remain planned. The linear
 reference is a comparison baseline, not the project's primary magnetic model.
 

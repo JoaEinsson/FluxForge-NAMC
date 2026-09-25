@@ -17,7 +17,7 @@ validation dependency remains unresolved.
 | G0 — Governance foundation | Complete | Initial commit |
 | 0 — Repository and toolchain foundation | In progress | `0.1.0` candidate |
 | 1 — Linear reference system | In progress | Pre-`1.0` |
-| 2 — Nonlinear magnetic plant | Planned | Pre-`1.0` |
+| 2 — Nonlinear magnetic plant | In progress | Pre-`1.0` |
 | 3 — Model-aware current control | Planned | Pre-`1.0` |
 | 4 — Local identification | Planned | Pre-`1.0` |
 | 5 — Adaptive global magnetic surface | Planned | Pre-`1.0` |
@@ -35,7 +35,8 @@ The magnetic-model direction is coupled flux-linkage lookup tables, initially
 correction from identification data. Local incremental matrices are derived
 when needed by a selected algorithm; coenergy is an optional modeling or
 fitting tool. [ADR-0004](docs/adr/0004-use-coupled-flux-linkage-maps.md) records
-this decision. The magnetic capabilities below remain planned.
+this decision. The initial Phase 2 LUT/plant slice is implemented; the broader
+magnetic, identification and adaptive capabilities below are not yet complete.
 
 ## G0 — Governance foundation
 
@@ -100,6 +101,19 @@ local simulation results do not imply hardware validation.
 - logs reproduce a run from configuration and seed.
 
 ## Phase 2 — Nonlinear magnetic plant
+
+The first slice provides coupled bilinear LUTs, offline validation, strict
+domain checks, experimental Python JSON import/native queries, and a guarded
+nonlinear current-state plant. Synthetic tests cover cross-saturation,
+interpolation/derivative error, the linear limit and a baseline current loop.
+See the [guide](docs/development/flux-maps.md),
+[proposed ADR-0006](docs/adr/0006-coupled-lut-runtime-and-plant.md), and
+[local evidence](docs/development/phase2-evidence.md). Imported-map experiments
+now run in the native simulator with complete map/configuration/seed reports,
+bounded traces and linear-plant comparisons; see
+[magnetic experiments](docs/development/magnetic-experiments.md).
+Broader map-quality assessment, review and CI evidence for this patch remain
+outstanding; this is not real-motor validation.
 
 ### Scope
 
