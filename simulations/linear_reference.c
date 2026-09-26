@@ -1,6 +1,7 @@
 #include "namc/core.h"
 #include "namc/linear_plant.h"
 #include "namc/magnetic_plant.h"
+#include "namc/model_current.h"
 #include "namc/reference.h"
 #include "map_transport.h"
 
@@ -18,6 +19,7 @@ typedef struct namc_sim_sample {
     namc_duty_t duty;
     namc_ab_t voltage;
     double torque;
+    int controller_mode; /* 0 nominal, 1 flux-map, 2 latched nominal fallback. */
 } namc_sim_sample_t;
 
 /* Host-only bounded diagnostic storage, not part of the controller. */
@@ -35,7 +37,8 @@ static void namc_usage(void)
 {
     fprintf(stderr, "Usage: namc_sim [--steps 2..1000000] [--seed 0..4294967295] "
         "[--dt 1e-7..1e-4] [--id -10..10] [--iq -10..10] [--vdc 12..60] "
-        "[--load -2..2] [--plant linear|lut] [--trace-stride 0..1000000]\n"
+        "[--load -2..2] [--plant linear|lut] [--trace-stride 0..1000000] "
+        "[--controller nominal|flux-map] [--model-failure disable|nominal]\n"
         "lut reads the private map transport from stdin; use the Python JSON runner.\n");
 }
 
@@ -50,6 +53,11 @@ int main(int argc, char **argv)
     unsigned int trace_stride = 0U, trace_count = 0U;
     double torque = 0.0, max_abs_torque = 0.0;
     int use_lut = 0;
+    int use_control_map = 0, fallback_policy = 0, fallback_first_step = -1;
+    unsigned int fallback_steps = 0U, voltage_limit_steps = 0U;
+    namc_flux_map_t control_map = {0};
+    namc_model_current_config_t model_controller;
+    namc_model_current_state_t model_state;
     namc_flux_map_t map = {0};
     int argument;
     /* Independent scenario truth and nominal controller priors. Never copy
@@ -71,6 +79,18 @@ int main(int argc, char **argv)
     for (argument = 1; argument < argc; argument += 2) {
         double value;
         const char *key = argv[argument];
+        if (strcmp(key, "--controller") == 0 && argument + 1 < argc) {
+            if (strcmp(argv[argument + 1], "nominal") == 0) { use_control_map = 0; }
+            else if (strcmp(argv[argument + 1], "flux-map") == 0) { use_control_map = 1; }
+            else { namc_usage(); return 2; }
+            continue;
+        }
+        if (strcmp(key, "--model-failure") == 0 && argument + 1 < argc) {
+            if (strcmp(argv[argument + 1], "disable") == 0) { fallback_policy = 0; }
+            else if (strcmp(argv[argument + 1], "nominal") == 0) { fallback_policy = 1; }
+            else { namc_usage(); return 2; }
+            continue;
+        }
         if (strcmp(key, "--plant") == 0 && argument + 1 < argc) {
             if (strcmp(argv[argument + 1], "linear") == 0) {
                 use_lut = 0;
@@ -110,7 +130,7 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    if (hypot(id, iq) > controller.current_limit ||
+    if ((!use_control_map && fallback_policy) || hypot(id, iq) > controller.current_limit ||
         (trace_stride != 0U && (steps - 1U) / trace_stride + 1U > NAMC_TRACE_CAPACITY)) {
         fprintf(stderr, "Configuration rejected: reference limit or trace capacity.\n");
         return 2;
@@ -119,7 +139,7 @@ int main(int argc, char **argv)
     reference.q = iq;
     if (use_lut) {
         namc_dq_t flux, zero = {0.0, 0.0};
-        if (!namc_sim_read_map(&map)) {
+        if (!namc_sim_read_map(&map, 0U)) {
             fprintf(stderr, "Map transport rejected.\n");
             return 2;
         }
@@ -129,28 +149,58 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+    if (use_control_map && !namc_sim_read_map(&control_map, 1U)) {
+        fprintf(stderr, "Controller map transport rejected.\n");
+        return 2;
+    }
+    if ((use_lut || use_control_map) && !namc_sim_map_end()) {
+        fprintf(stderr, "Map transport rejected: trailing data.\n");
+        return 2;
+    }
     /* One defined LCG draw selects only initial electrical angle, not a motor
      * population. Unsigned arithmetic is modulo 2^32. */
     random_state = seed * UINT32_C(1664525) + UINT32_C(1013904223);
     initial_angle = ((double)random_state / 4294967296.0) * 6.2831853071795864769;
     state.angle = initial_angle;
     controller.sample_time = dt;
+    model_controller.version = NAMC_MODEL_CURRENT_VERSION;
+    model_controller.nominal = controller;
+    model_controller.map = &control_map;
+    model_controller.failure_policy = fallback_policy ? NAMC_MODEL_NOMINAL_FALLBACK : NAMC_MODEL_DISABLE;
+    namc_model_current_reset(&model_state);
     namc_current_reset(&control_state);
     for (n = 0U; n < steps; ++n) {
         namc_dq_t current = {state.id, state.iq};
         namc_ab_t stationary_current, voltage;
         namc_abc_t measured_current;
         namc_duty_t duty;
+        namc_result_t control_result;
         double error;
         /* Ideal sensor adapter. Pole-pair count 4 is an independent encoder
          * configuration, not read from hidden magnetic/mechanical truth. */
         if (namc_inverse_park(current, state.angle, &stationary_current) != NAMC_OK ||
-            namc_inverse_clarke(stationary_current, &measured_current) != NAMC_OK ||
-            namc_current_step(&controller, &control_state, reference, measured_current,
-                state.angle, 4.0 * state.speed, vdc, &duty) != NAMC_OK ||
-            namc_average_inverter(duty, vdc, &voltage) != NAMC_OK) {
-            fprintf(stderr, "Simulation stopped: controller/sensor/inverter at step %u.\n", n);
+            namc_inverse_clarke(stationary_current, &measured_current) != NAMC_OK) {
+            fprintf(stderr, "Simulation stopped: sensor at step %u.\n", n);
             return 1;
+        }
+        if (use_control_map) {
+            control_result = namc_model_current_step(&model_controller, &model_state, reference,
+                measured_current, state.angle, 4.0 * state.speed, vdc, &duty);
+        } else {
+            control_result = namc_current_step(&controller, &control_state, reference,
+                measured_current, state.angle, 4.0 * state.speed, vdc, &duty);
+        }
+        if (control_result != NAMC_OK || namc_average_inverter(duty, vdc, &voltage) != NAMC_OK) {
+            fprintf(stderr, "Simulation stopped: controller/inverter at step %u, status %d, model status %d.\n",
+                n, (int)control_result, (int)model_state.model_failure);
+            return 1;
+        }
+        if (model_state.fallback_latched) {
+            ++fallback_steps;
+            if (fallback_first_step < 0) { fallback_first_step = (int)n; }
+        }
+        if (hypot(voltage.alpha, voltage.beta) >= vdc / sqrt(3.0) * (1.0 - 1e-12)) {
+            ++voltage_limit_steps;
         }
         if (use_lut) {
             namc_flux_result_t status = namc_magnetic_step(&magnetic, &state, voltage, load, dt);
@@ -201,6 +251,7 @@ int main(int argc, char **argv)
             sample->duty = duty;
             sample->voltage = voltage;
             sample->torque = torque;
+            sample->controller_mode = use_control_map ? (model_state.fallback_latched ? 2 : 1) : 0;
         }
     }
     printf("{\n  \"schema\": \"%s\",\n"
@@ -234,7 +285,13 @@ int main(int argc, char **argv)
             plant.model_version, plant.resistance, plant.ld, plant.lq,
             plant.pm_flux, plant.inertia, plant.friction, plant.pole_pairs);
     }
+    if (use_control_map) {
+        printf("  \"controller_model\": {");
+        namc_sim_print_map(&control_map);
+        printf("},\n");
+    }
     printf("  \"controller\": {\"model_version\": %u, \"dt_s\": %.17g, "
+        "\"kind\": \"%s\", \"model_failure_policy\": \"%s\", "
         "\"kp_d_V_A\": %.17g, \"kp_q_V_A\": %.17g, "
         "\"ki_d_V_As\": %.17g, \"ki_q_V_As\": %.17g, \"kaw_per_s\": %.17g, "
         "\"Ld_prior_H\": %.17g, \"Lq_prior_H\": %.17g, \"pm_flux_prior_Wb\": %.17g, "
@@ -242,7 +299,9 @@ int main(int argc, char **argv)
         "\"electrical_speed_limit_rad_s\": %.17g, \"encoder_pole_pairs\": 4, "
         "\"id_reference_A\": %.17g, \"initial_integral_d_V\": 0, "
         "\"initial_integral_q_V\": 0},\n",
-        controller.model_version, controller.sample_time, controller.kp_d,
+        controller.model_version, controller.sample_time,
+        use_control_map ? "flux-map-pi" : "nominal-pi", fallback_policy ? "nominal" : "disable",
+        controller.kp_d,
         controller.kp_q, controller.ki_d, controller.ki_q, controller.antiwindup_gain,
         controller.ld, controller.lq, controller.pm_flux, controller.current_limit,
         controller.min_bus_voltage, controller.max_bus_voltage,
@@ -251,20 +310,24 @@ int main(int argc, char **argv)
         "\"speed_rad_s\": %.17g, \"electrical_angle_rad\": %.17g, \"torque_Nm\": %.17g},\n"
         "  \"metrics\": {\"rms_current_error_A\": %.17g, "
         "\"tail_rms_current_error_A\": %.17g, \"max_current_A\": %.17g, "
-        "\"min_duty\": %.17g, \"max_duty\": %.17g, \"max_abs_torque_Nm\": %.17g},\n",
+        "\"min_duty\": %.17g, \"max_duty\": %.17g, \"max_abs_torque_Nm\": %.17g, "
+        "\"voltage_limit_steps\": %u, \"fallback_steps\": %u},\n"
+        "  \"model_diagnostics\": {\"first_fallback_step_zero_based\": %d, \"flux_status\": %d},\n",
         state.id, state.iq, state.speed, state.angle, torque,
         sqrt(squared_error / (double)steps), sqrt(tail_error / (double)tail_count),
-        max_current, min_duty, max_duty, max_abs_torque);
+        max_current, min_duty, max_duty, max_abs_torque, voltage_limit_steps, fallback_steps,
+        fallback_first_step, (int)model_state.model_failure);
     printf("  \"trace\": [");
     for (n = 0U; n < trace_count; ++n) {
         const namc_sim_sample_t *s = &namc_trace[n];
         printf("%s{\"step\": %u, \"time_s\": %.17g, \"id_A\": %.17g, "
             "\"iq_A\": %.17g, \"speed_rad_s\": %.17g, \"electrical_angle_rad\": %.17g, "
             "\"torque_Nm\": %.17g, \"duty_a\": %.17g, \"duty_b\": %.17g, "
-            "\"duty_c\": %.17g, \"voltage_alpha_V\": %.17g, \"voltage_beta_V\": %.17g}",
+            "\"duty_c\": %.17g, \"voltage_alpha_V\": %.17g, \"voltage_beta_V\": %.17g, "
+            "\"controller_mode\": %d}",
             n == 0U ? "" : ",\n", s->step, (double)s->step * dt, s->state.id,
             s->state.iq, s->state.speed, s->state.angle, s->torque,
-            s->duty.a, s->duty.b, s->duty.c, s->voltage.alpha, s->voltage.beta);
+            s->duty.a, s->duty.b, s->duty.c, s->voltage.alpha, s->voltage.beta, s->controller_mode);
     }
     printf("]\n}\n");
     return fflush(stdout) == 0 && !ferror(stdout) ? 0 : 1;

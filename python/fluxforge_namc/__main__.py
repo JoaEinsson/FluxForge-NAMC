@@ -17,6 +17,13 @@ def main() -> int:
     parser.add_argument("--min-incremental-h", type=float)
     parser.add_argument("--max-reciprocity-error-h", type=float)
     parser.add_argument("--min-rcond", type=float)
+    parser.add_argument("--controller-map", help="Separate accepted controller map JSON")
+    parser.add_argument("--control-min-incremental-h", type=float)
+    parser.add_argument("--control-max-reciprocity-error-h", type=float)
+    parser.add_argument("--control-min-rcond", type=float)
+    parser.add_argument("--model-failure", choices=("disable", "nominal"), default="disable")
+    parser.add_argument("--compare-controllers", action="store_true",
+                        help="Compare nominal and flux-based PI on the same hidden plant")
     for name, value, kind in (
         ("steps", 2000, int), ("seed", 1, int), ("dt", 0.00005, float),
         ("id", 0.0, float), ("iq", 5.0, float), ("vdc", 48.0, float),
@@ -31,13 +38,40 @@ def main() -> int:
         parser.error("Map library/thresholds require --map")
     if args.compare_linear and not args.map:
         parser.error("--compare-linear requires --map")
+    control_policy = (args.control_min_incremental_h, args.control_max_reciprocity_error_h,
+                      args.control_min_rcond)
+    if args.controller_map:
+        if not args.map or any(v is None for v in control_policy):
+            parser.error("--controller-map requires --map and three separate control validation thresholds")
+        if args.compare_linear:
+            parser.error("--compare-linear cannot be combined with --controller-map; use --compare-controllers")
+    elif (args.compare_controllers or args.model_failure != "disable" or
+          any(v is not None for v in control_policy)):
+        parser.error("Control comparison, policy and thresholds require --controller-map")
     config = {key: getattr(args, key) for key in (
         "steps", "seed", "dt", "id", "iq", "vdc", "load", "trace_stride",
     )}
     try:
         if args.map:
             model = FluxMap.from_json(args.library, args.map, limits=FluxMapLimits(*policy))
-            result = run_flux_map_reference(args.executable, model, **config)
+            controller_map = None
+            if args.controller_map:
+                controller_map = FluxMap.from_json(
+                    args.library, args.controller_map, limits=FluxMapLimits(*control_policy),
+                )
+            result = run_flux_map_reference(args.executable, model, **config,
+                                            controller_map=controller_map, model_failure=args.model_failure)
+            if args.compare_controllers:
+                baseline = run_flux_map_reference(args.executable, model, **config)
+                result = {
+                    "schema": "namc-controller-comparison-experimental-v1",
+                    "evidence": "simulation-only",
+                    "comparison": "same hidden plant, PI gains, limits and scenario; different compensation",
+                    "metric_delta_model_minus_nominal": {
+                        key: value - baseline["metrics"][key] for key, value in result["metrics"].items()
+                    },
+                    "nominal": baseline, "model_aware": result,
+                }
             if args.compare_linear:
                 linear = run_linear_reference(args.executable, **config)
                 result = {

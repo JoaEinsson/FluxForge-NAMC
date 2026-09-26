@@ -18,7 +18,7 @@ validation dependency remains unresolved.
 | 0 — Repository and toolchain foundation | In progress | `0.1.0` candidate |
 | 1 — Linear reference system | In progress | Pre-`1.0` |
 | 2 — Nonlinear magnetic plant | In progress | Pre-`1.0` |
-| 3 — Model-aware current control | Planned | Pre-`1.0` |
+| 3 — Model-aware current control | In progress | Pre-`1.0` |
 | 4 — Local identification | Planned | Pre-`1.0` |
 | 5 — Adaptive global magnetic surface | Planned | Pre-`1.0` |
 | 6 — Inverter and sensor nonidealities | Planned | Pre-`1.0` |
@@ -138,6 +138,15 @@ outstanding; this is not real-motor validation.
 - the linear backend is recovered as a controlled special case.
 
 ## Phase 3 — Model-aware current control
+
+The first slice adds fixed-gain PI with flux-map rotational compensation,
+independent model inputs, explicit disable/latched nominal fallback policies,
+and same-plant controller comparisons with replayable diagnostics. See the
+[controller guide](docs/development/model-aware-current.md),
+[proposed ADR-0007](docs/adr/0007-flux-map-current-compensation.md), and
+[local evidence](docs/development/phase3-evidence.md). Bounded automatic gain
+tuning, timing evidence, broader stability assessment and review remain
+outstanding; this is not complete Phase 3 or adaptive identification.
 
 ### Scope
 
