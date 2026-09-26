@@ -10,6 +10,9 @@ once versioned releases begin.
 
 ### Added
 
+- Bounded offline PI gain design from accepted coupled-map derivatives and an
+  independent resistance estimate, startup-only application, replayable tuning
+  diagnostics and three-way same-plant controller comparisons.
 - Initial Phase 3 fixed-gain PI with coupled flux-based rotational compensation,
   independently supplied controller maps, explicit disable/latched nominal
   fallback policies and same-plant controller comparisons with replay diagnostics.
@@ -39,6 +42,8 @@ once versioned releases begin.
 
 ### Changed
 
+- Corrected the Phase 3 first-slice evidence's initial angle for seed 42 to
+  match the simulator's recorded LCG-selected angle; result metrics are unchanged.
 - Magnetic-model direction now centers on coupled flux-linkage LUTs, data
   fitting, and progressive identification-based correction. ADR-0004 records
   coenergy and local incremental matrices as algorithm-dependent tools rather

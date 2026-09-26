@@ -4,7 +4,7 @@ import argparse
 import json
 import subprocess
 
-from . import FluxMap, FluxMapLimits, run_flux_map_reference, run_linear_reference
+from . import CurrentTuning, FluxMap, FluxMapLimits, run_flux_map_reference, run_linear_reference
 
 
 def main() -> int:
@@ -24,6 +24,10 @@ def main() -> int:
     parser.add_argument("--model-failure", choices=("disable", "nominal"), default="disable")
     parser.add_argument("--compare-controllers", action="store_true",
                         help="Compare nominal and flux-based PI on the same hidden plant")
+    for name in ("bandwidth", "resistance", "min-bandwidth", "max-bandwidth", "max-rate-sample",
+                 "max-kp", "max-ki", "error", "voltage-fraction", "speed"):
+        parser.add_argument(f"--tune-{name}", type=float,
+                            help="Offline PI design input (SI units; bandwidth/speed in rad/s)")
     for name, value, kind in (
         ("steps", 2000, int), ("seed", 1, int), ("dt", 0.00005, float),
         ("id", 0.0, float), ("iq", 5.0, float), ("vdc", 48.0, float),
@@ -48,6 +52,17 @@ def main() -> int:
     elif (args.compare_controllers or args.model_failure != "disable" or
           any(v is not None for v in control_policy)):
         parser.error("Control comparison, policy and thresholds require --controller-map")
+    tuning_values = {name.removeprefix("tune_"): value for name, value in vars(args).items()
+                     if name.startswith("tune_") and value is not None}
+    tuning = None
+    if tuning_values:
+        if (not args.controller_map or args.model_failure != "disable" or
+                "bandwidth" not in tuning_values or "resistance" not in tuning_values):
+            parser.error("Tuning requires --controller-map, --tune-bandwidth, --tune-resistance and disable policy")
+        for short, long in (("error", "design_error"), ("speed", "electrical_speed")):
+            if short in tuning_values:
+                tuning_values[long] = tuning_values.pop(short)
+        tuning = CurrentTuning(**tuning_values)
     config = {key: getattr(args, key) for key in (
         "steps", "seed", "dt", "id", "iq", "vdc", "load", "trace_stride",
     )}
@@ -60,8 +75,13 @@ def main() -> int:
                     args.library, args.controller_map, limits=FluxMapLimits(*control_policy),
                 )
             result = run_flux_map_reference(args.executable, model, **config,
-                                            controller_map=controller_map, model_failure=args.model_failure)
+                                           controller_map=controller_map, model_failure=args.model_failure,
+                                           tuning=tuning)
             if args.compare_controllers:
+                tuned_result = result if tuning is not None else None
+                if tuning is not None:
+                    result = run_flux_map_reference(args.executable, model, **config,
+                                                   controller_map=controller_map)
                 baseline = run_flux_map_reference(args.executable, model, **config)
                 result = {
                     "schema": "namc-controller-comparison-experimental-v1",
@@ -72,6 +92,16 @@ def main() -> int:
                     },
                     "nominal": baseline, "model_aware": result,
                 }
+                if tuned_result is not None:
+                    result["schema"] = "namc-tuning-comparison-experimental-v1"
+                    result["comparison"] = (
+                        "same hidden plant, limits and scenario; nominal PI, fixed-gain flux PI, tuned flux PI"
+                    )
+                    result["tuned_model_aware"] = tuned_result
+                    result["metric_delta_tuned_minus_fixed"] = {
+                        key: value - result["model_aware"]["metrics"][key]
+                        for key, value in tuned_result["metrics"].items()
+                    }
             if args.compare_linear:
                 linear = run_linear_reference(args.executable, **config)
                 result = {

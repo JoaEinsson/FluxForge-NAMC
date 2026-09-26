@@ -1,4 +1,5 @@
 #include "namc/core.h"
+#include "namc/current_tuning.h"
 #include "namc/linear_plant.h"
 #include "namc/magnetic_plant.h"
 #include "namc/model_current.h"
@@ -38,7 +39,11 @@ static void namc_usage(void)
     fprintf(stderr, "Usage: namc_sim [--steps 2..1000000] [--seed 0..4294967295] "
         "[--dt 1e-7..1e-4] [--id -10..10] [--iq -10..10] [--vdc 12..60] "
         "[--load -2..2] [--plant linear|lut] [--trace-stride 0..1000000] "
-        "[--controller nominal|flux-map] [--model-failure disable|nominal]\n"
+        "[--controller nominal|flux-map] [--model-failure disable|nominal] "
+        "[--tune-bandwidth rad/s --tune-resistance ohm] "
+        "[--tune-min-bandwidth rad/s] [--tune-max-bandwidth rad/s] "
+        "[--tune-max-rate-sample ratio] [--tune-max-kp V/A] [--tune-max-ki V/As] "
+        "[--tune-error A] [--tune-voltage-fraction ratio] [--tune-speed rad/s]\n"
         "lut reads the private map transport from stdin; use the Python JSON runner.\n");
 }
 
@@ -56,6 +61,15 @@ int main(int argc, char **argv)
     int use_control_map = 0, fallback_policy = 0, fallback_first_step = -1;
     unsigned int fallback_steps = 0U, voltage_limit_steps = 0U;
     namc_flux_map_t control_map = {0};
+    unsigned int tune_required = 0U;
+    int tune_options = 0;
+    /* Scenario design policy, independent of hidden plant parameters. The
+     * resistance estimate and requested bandwidth MUST be supplied explicitly. */
+    namc_tuning_request_t tuning = {
+        NAMC_CURRENT_TUNING_VERSION, {0.0, 0.0}, 0.0, 48.0, 0.0, 0.0,
+        10.0, 2000.0, 0.2, 10.0, 2000.0, 1.0, 0.5
+    };
+    namc_tuning_candidate_t tuned = {0};
     namc_model_current_config_t model_controller;
     namc_model_current_state_t model_state;
     namc_flux_map_t map = {0};
@@ -106,6 +120,21 @@ int main(int argc, char **argv)
             namc_usage();
             return 2;
         }
+        if (strncmp(key, "--tune-", 7U) == 0) {
+            tune_options = 1;
+            if (strcmp(key, "--tune-bandwidth") == 0) { tuning.requested_bandwidth = value; tune_required |= 1U; }
+            else if (strcmp(key, "--tune-resistance") == 0) { tuning.resistance = value; tune_required |= 2U; }
+            else if (strcmp(key, "--tune-min-bandwidth") == 0) { tuning.min_bandwidth = value; }
+            else if (strcmp(key, "--tune-max-bandwidth") == 0) { tuning.max_bandwidth = value; }
+            else if (strcmp(key, "--tune-max-rate-sample") == 0) { tuning.max_rate_sample = value; }
+            else if (strcmp(key, "--tune-max-kp") == 0) { tuning.max_kp = value; }
+            else if (strcmp(key, "--tune-max-ki") == 0) { tuning.max_ki = value; }
+            else if (strcmp(key, "--tune-error") == 0) { tuning.design_error = value; }
+            else if (strcmp(key, "--tune-voltage-fraction") == 0) { tuning.voltage_fraction = value; }
+            else if (strcmp(key, "--tune-speed") == 0) { tuning.electrical_speed = value; }
+            else { namc_usage(); return 2; }
+            continue;
+        }
         if (strcmp(key, "--steps") == 0 && value >= 2.0 && value <= 1000000.0 &&
             floor(value) == value) {
             steps = (unsigned int)value;
@@ -129,6 +158,10 @@ int main(int argc, char **argv)
             namc_usage();
             return 2;
         }
+    }
+    if (tune_options && (tune_required != 3U || !use_control_map || fallback_policy)) {
+        fprintf(stderr, "Tuning requires explicit bandwidth/resistance, a controller map and disable policy.\n");
+        return 2;
     }
     if ((!use_control_map && fallback_policy) || hypot(id, iq) > controller.current_limit ||
         (trace_stride != 0U && (steps - 1U) / trace_stride + 1U > NAMC_TRACE_CAPACITY)) {
@@ -163,6 +196,22 @@ int main(int argc, char **argv)
     initial_angle = ((double)random_state / 4294967296.0) * 6.2831853071795864769;
     state.angle = initial_angle;
     controller.sample_time = dt;
+    if (tune_options) {
+        namc_tuning_result_t status;
+        tuning.operating_current = reference;
+        tuning.bus_voltage = vdc;
+        status = namc_current_tune(&control_map, &controller, &tuning, &tuned);
+        if (status != NAMC_TUNING_OK) {
+            fprintf(stderr, "Tuning rejected before controller activation: status %d.\n", (int)status);
+            return 2;
+        }
+        /* Apply only the candidate gains, before reset/first enabled sample.
+         * No change to independent limits, nominal magnetic priors or kaw. */
+        controller.kp_d = tuned.kp_d;
+        controller.kp_q = tuned.kp_q;
+        controller.ki_d = tuned.ki_d;
+        controller.ki_q = tuned.ki_q;
+    }
     model_controller.version = NAMC_MODEL_CURRENT_VERSION;
     model_controller.nominal = controller;
     model_controller.map = &control_map;
@@ -289,6 +338,24 @@ int main(int argc, char **argv)
         printf("  \"controller_model\": {");
         namc_sim_print_map(&control_map);
         printf("},\n");
+    }
+    if (tune_options) {
+        printf("  \"tuning\": {\"method\": \"local-coupled-pi-design-v1\", "
+            "\"request\": {\"bandwidth\": %.17g, \"resistance\": %.17g, "
+            "\"min_bandwidth\": %.17g, \"max_bandwidth\": %.17g, \"max_rate_sample\": %.17g, "
+            "\"max_kp\": %.17g, \"max_ki\": %.17g, \"design_error\": %.17g, "
+            "\"voltage_fraction\": %.17g, \"electrical_speed\": %.17g}, "
+            "\"operating_id_A\": %.17g, \"operating_iq_A\": %.17g, "
+            "\"bus_voltage_V\": %.17g, \"selected_bandwidth_rad_s\": %.17g, "
+            "\"jacobian_H\": {\"dd\": %.17g, \"dq\": %.17g, \"qd\": %.17g, \"qq\": %.17g}, "
+            "\"inverse_norm_per_H\": %.17g, \"coupling_factor\": %.17g, "
+            "\"rate_sample\": %.17g, \"voltage_headroom_V\": %.17g, \"caps\": %u},\n",
+            tuning.requested_bandwidth, tuning.resistance, tuning.min_bandwidth,
+            tuning.max_bandwidth, tuning.max_rate_sample, tuning.max_kp, tuning.max_ki,
+            tuning.design_error, tuning.voltage_fraction, tuning.electrical_speed,
+            tuning.operating_current.d, tuning.operating_current.q, tuning.bus_voltage,
+            tuned.bandwidth, tuned.jacobian.dd, tuned.jacobian.dq, tuned.jacobian.qd, tuned.jacobian.qq,
+            tuned.inverse_norm, tuned.coupling_factor, tuned.rate_sample, tuned.voltage_headroom, tuned.caps);
     }
     printf("  \"controller\": {\"model_version\": %u, \"dt_s\": %.17g, "
         "\"kind\": \"%s\", \"model_failure_policy\": \"%s\", "

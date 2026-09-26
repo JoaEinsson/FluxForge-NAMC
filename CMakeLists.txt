@@ -11,6 +11,7 @@ add_library(namc_core STATIC
     src/core/core.c
     src/core/reference.c
     src/core/flux_map.c
+    src/core/current_tuning.c
 )
 
 target_compile_features(namc_core PUBLIC c_std_11)
@@ -29,6 +30,7 @@ add_library(namc_core_binding SHARED
     src/core/core.c
     src/core/reference.c
     src/core/flux_map.c
+    src/core/current_tuning.c
 )
 target_compile_features(namc_core_binding PUBLIC c_std_11)
 target_compile_definitions(namc_core_binding PRIVATE NAMC_CORE_SHARED_BUILD)
@@ -122,6 +124,13 @@ if(BUILD_TESTING)
         C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
     namc_enable_strict_warnings(namc_model_current_test)
     add_test(NAME namc_model_current COMMAND namc_model_current_test)
+
+    add_executable(namc_current_tuning_test tests/current_tuning_test.c)
+    target_link_libraries(namc_current_tuning_test PRIVATE namc_core)
+    set_target_properties(namc_current_tuning_test PROPERTIES
+        C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+    namc_enable_strict_warnings(namc_current_tuning_test)
+    add_test(NAME namc_current_tuning COMMAND namc_current_tuning_test)
 
     option(NAMC_REQUIRE_PYTEST "Fail configuration when pytest is unavailable" OFF)
     find_package(Python3 3.10 COMPONENTS Interpreter QUIET)

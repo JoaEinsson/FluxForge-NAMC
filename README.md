@@ -81,7 +81,10 @@ The initial repository establishes:
 The first Phase 3 slice also provides fixed-gain PI with coupled flux-based
 compensation, explicit model-failure policies and same-plant comparisons
 ([model-aware current control](docs/development/model-aware-current.md)).
-Automatic gain tuning and complete Phase 3 validation remain outstanding.
+An additional [offline tuning slice](docs/development/current-tuning.md)
+calculates bounded local PI gains from the accepted map and an explicit
+resistance estimate. Online adaptation and complete Phase 3 validation remain
+outstanding.
 
 Identification, map fitting/correction, adaptive control, nonideal
 inverters/sensors, and hardware integration remain planned. The linear

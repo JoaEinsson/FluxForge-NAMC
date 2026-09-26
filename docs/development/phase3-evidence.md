@@ -52,7 +52,7 @@ Repository policy/link validation and whitespace checks passed.
 ## Same-plant observations
 
 The comparison uses the nonlinear 33x33 fixture over [-8,8] A on both axes,
-seed 42, zero initial currents/speed, initial electrical angle 0.37 rad,
+seed 42, zero initial currents/speed, initial electrical angle 1.585531494539493 rad,
 2,000 steps at 50 us, references `id=-2 A, iq=5 A`, 48 V bus and signed
 load 0.2 N m. The fixed PI gains, nominal priors and independent hard limits
 are identical between controllers. The simulator's current limit is 12 A;

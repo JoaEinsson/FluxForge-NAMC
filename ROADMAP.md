@@ -144,9 +144,12 @@ independent model inputs, explicit disable/latched nominal fallback policies,
 and same-plant controller comparisons with replayable diagnostics. See the
 [controller guide](docs/development/model-aware-current.md),
 [proposed ADR-0007](docs/adr/0007-flux-map-current-compensation.md), and
-[local evidence](docs/development/phase3-evidence.md). Bounded automatic gain
-tuning, timing evidence, broader stability assessment and review remain
-outstanding; this is not complete Phase 3 or adaptive identification.
+[local evidence](docs/development/phase3-evidence.md). A subsequent
+[offline tuning slice](docs/development/current-tuning.md) now calculates local
+PI gains under sample-rate, gain, voltage and current design constraints using
+an independent map/resistance estimate. Timing evidence, broader stability
+assessment, qualified tuned fallback and review remain outstanding; this is
+not complete Phase 3 or adaptive identification.
 
 ### Scope
 
