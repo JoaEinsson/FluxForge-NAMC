@@ -7,20 +7,28 @@
 extern "C" {
 #endif
 
-#define NAMC_MODEL_CURRENT_VERSION 1U
+#define NAMC_MODEL_CURRENT_VERSION 2U
 
 typedef enum namc_model_failure_policy {
     NAMC_MODEL_DISABLE = 0,
     NAMC_MODEL_NOMINAL_FALLBACK = 1
 } namc_model_failure_policy_t;
 
+typedef struct namc_current_gains {
+    double kp_d, kp_q; /* V/A */
+    double ki_d, ki_q; /* V/(A s) */
+} namc_current_gains_t;
+
 typedef struct namc_model_current_config {
     unsigned int version;
-    /* Independently supplied gains, nominal fallback priors and hard limits.
-     * Neither limits nor gains are inferred from the map in this first slice. */
+    /* Independent reserve gains, nominal priors and shared hard limits. */
     namc_current_config_t nominal;
     const namc_flux_map_t *map; /* Accepted controller model, never plant truth. */
     namc_model_failure_policy_t failure_policy;
+    /* Optional immutable startup gains for mapped operation ONLY. NULL uses
+     * nominal gains for both paths. Borrowed storage must outlive mapped use.
+     * Never overwrite nominal with a tuned candidate. No live gain scheduling. */
+    const namc_current_gains_t *mapped_gains;
 } namc_model_current_config_t;
 
 typedef struct namc_model_current_state {

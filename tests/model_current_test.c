@@ -13,7 +13,7 @@ static namc_model_current_config_t config(const namc_flux_map_t *map)
         NAMC_MODEL_CURRENT_VERSION,
         {NAMC_REFERENCE_MODEL_VERSION, 0.00005, 3.0, 4.0, 600.0, 600.0, 500.0,
          0.0015, 0.002, 0.04, 12.0, 12.0, 60.0, 2000.0},
-        map, NAMC_MODEL_DISABLE
+        map, NAMC_MODEL_DISABLE, NULL
     };
     return c;
 }
@@ -172,7 +172,72 @@ static int invalid_model_and_handles(void)
     return 1;
 }
 
+static int separate_gains_and_transition(void)
+{
+    const double axis[] = {-10.0, 10.0};
+    const double pd[] = {0.016, 0.024, 0.076, 0.084};
+    const double pq[] = {-0.044, 0.036, -0.036, 0.044};
+    const namc_flux_data_t data = {1U, 1U, 1U, 2U, 2U, 4U, axis, axis, pd, pq,
+        NAMC_FLUX_ANALYTICAL, "original-separate-gains-test", 293.15, 0.0};
+    const namc_flux_limits_t limits = {1e-5, 1e-10, 1e-6};
+    namc_flux_map_t map;
+    namc_current_gains_t gains = {6.0, 8.0, 900.0, 1000.0};
+    namc_model_current_config_t c;
+    namc_model_current_state_t state;
+    namc_current_state_t reserve, oracle;
+    namc_current_config_t active;
+    namc_duty_t duty, expected;
+    const namc_dq_t ref = {1.0, -1.0};
+    const namc_abc_t measured = {0.0, 0.0, 0.0};
+    unsigned int i;
+    CHECK(namc_flux_map_prepare(&data, &limits, &map) == NAMC_FLUX_OK);
+    c = config(&map);
+    c.failure_policy = NAMC_MODEL_NOMINAL_FALLBACK;
+    c.mapped_gains = &gains;
+    active = c.nominal;
+    active.kp_d = gains.kp_d; active.kp_q = gains.kp_q;
+    active.ki_d = gains.ki_d; active.ki_q = gains.ki_q;
+    namc_model_current_reset(&state);
+    namc_current_reset(&oracle);
+    /* At zero speed compensation vanishes: isolate all four mapped gains. */
+    for (i = 0U; i < 5U; ++i) {
+        CHECK(namc_current_step(&active, &oracle, ref, measured, 0.3, 0.0, 48.0, &expected) == NAMC_OK);
+        CHECK(namc_model_current_step(&c, &state, ref, measured, 0.3, 0.0, 48.0, &duty) == NAMC_OK);
+        CHECK(duty.a == expected.a && duty.b == expected.b && duty.c == expected.c);
+        CHECK(state.pi.integral_d == oracle.integral_d && state.pi.integral_q == oracle.integral_q);
+    }
+    c.map = NULL;
+    namc_current_reset(&reserve);
+    /* Nonzero tracking error distinguishes reserve gains from tuned gains.
+     * A freshly reset oracle proves the first reset and subsequent accumulation. */
+    for (i = 0U; i < 5U; ++i) {
+        CHECK(namc_current_step(&c.nominal, &reserve, ref, measured, 0.3, 50.0, 48.0, &expected) == NAMC_OK);
+        CHECK(namc_model_current_step(&c, &state, ref, measured, 0.3, 50.0, 48.0, &duty) == NAMC_OK);
+        CHECK(state.fallback_latched && !state.pi.faulted);
+        CHECK(duty.a == expected.a && duty.b == expected.b && duty.c == expected.c);
+        CHECK(state.pi.integral_d == reserve.integral_d && state.pi.integral_q == reserve.integral_q);
+        /* Poisoned mapped gains are ignored ONLY after the fallback latch. */
+        gains.kp_d = NAN;
+        c.map = &map;
+    }
+    namc_model_current_reset(&state);
+    CHECK(namc_model_current_step(&c, &state, ref, measured, 0.0, 0.0, 48.0, &duty) == NAMC_INVALID_INPUT);
+    CHECK(disabled(duty) && state.pi.faulted && !state.fallback_latched);
+    gains.kp_d = 6.0;
+    namc_model_current_reset(&state);
+    c.nominal.kp_d = NAN; /* Invalid reserve must not hide behind valid mapped gains. */
+    CHECK(namc_model_current_step(&c, &state, ref, measured, 0.0, 0.0, 48.0, &duty) == NAMC_INVALID_INPUT);
+    CHECK(disabled(duty) && !state.fallback_latched);
+    c.nominal.kp_d = 3.0;
+    namc_model_current_reset(&state);
+    c.map = NULL;
+    CHECK(namc_model_current_step(&c, &state, ref, measured, 0.0, 0.0, 48.0, &duty) == NAMC_OK);
+    CHECK(namc_model_current_step(&c, &state, ref, measured, 0.0, 0.0, 61.0, &duty) == NAMC_LIMIT_EXCEEDED);
+    CHECK(disabled(duty) && state.pi.faulted);
+    return 1;
+}
+
 int main(void)
 {
-    return compensation_and_guards() && invalid_model_and_handles() ? 0 : 1;
+    return compensation_and_guards() && invalid_model_and_handles() && separate_gains_and_transition() ? 0 : 1;
 }

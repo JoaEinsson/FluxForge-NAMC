@@ -57,7 +57,8 @@ if(UNIX)
     target_link_libraries(namc_core_binding PRIVATE m)
 endif()
 
-add_executable(namc_sim simulations/linear_reference.c simulations/map_transport.c)
+add_executable(namc_sim simulations/linear_reference.c simulations/map_transport.c
+    simulations/host_timing.c)
 target_link_libraries(namc_sim PRIVATE namc_plant)
 set_target_properties(namc_sim PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
 namc_enable_strict_warnings(namc_sim)

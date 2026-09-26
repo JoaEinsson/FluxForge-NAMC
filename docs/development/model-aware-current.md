@@ -7,6 +7,8 @@ See the [proposed ADR-0007](../adr/0007-flux-map-current-compensation.md).
 
 The subsequent [offline tuning slice](current-tuning.md) can now calculate
 bounded startup gains; this document describes the original fixed-gain mode.
+The [qualification follow-up](control-qualification.md) documents experimental
+configuration version 2, separate reserve gains and transition/timing evidence.
 
 ## Controller boundary and equations
 
@@ -143,8 +145,9 @@ blocking I/O, recursion or unbounded iteration is added to the control path.
 ## Remaining Phase 3 work
 
 Offline local gain design is available in the [tuning follow-up](current-tuning.md).
-Derivative-based dynamic compensation if selected, timing instrumentation,
-wider stability/operating-region assessment and
-independent review remain outstanding. No runtime map learning/activation,
+The [qualification follow-up](control-qualification.md) adds host timing,
+separate reserve gains and finite operating-region assessment. Target timing,
+broader stability assessment and independent review remain outstanding.
+Derivative-based dynamic compensation is not implemented. No runtime map learning/activation,
 motor identification, hardware validation or general fallback guarantee is
 claimed. See [executed evidence](phase3-evidence.md).

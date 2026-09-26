@@ -77,18 +77,19 @@ The simulator uses reference dq currents and its bus voltage as the design
 point; `--tune-speed` is an explicit design speed, defaulting to zero. This
 does not command the simulated motor speed. Gains are applied only after a
 successful design, before controller reset/first sample, and remain fixed for
-the whole run. This is not gain scheduling across the map.
+the mapped portion of the run. Explicit fallback switches to independent reserve
+gains; this is not gain scheduling across the map.
 
 The core design cost is bounded: one lookup and two scaled solves, no search,
 allocation or plant simulation. It runs outside the fast path. Map domain,
 conditioning and physics gates remain in force. Native result values are
 0 success, 1 invalid input, 2 rejected model, 3 infeasible design.
 
-Tuned experiments currently require `--model-failure disable`. Invalid tuning
-aborts before activation with no success report. Runtime model failure still
-disables/latches through the existing controller. Combining tuned gains with
-nominal fallback is rejected until a separately qualified fallback configuration
-and transition are implemented. Fixed-gain fallback remains available unchanged.
+The default remains `--model-failure disable`. Invalid tuning aborts before
+activation with no success report. The [qualification follow-up](control-qualification.md)
+now permits explicit nominal fallback with independent reserve gains: tuned gains
+are stored separately and never overwrite the reserve. Its reset transition is
+not bumpless, and evidence is limited to the documented synthetic scenarios.
 
 ## CLI example and three-way comparison
 
@@ -134,8 +135,8 @@ With tuning enabled, `--compare-controllers` returns three complete reports:
 initial state, scenario and independent limits are used throughout. Do not
 claim identical gains between the tuned and fixed runs.
 
-Without tuning options, existing CLI/API behavior and fixed-gain reports are
-unchanged. `--compare-linear` remains a distinct comparison of plants and
+Without tuning options, fixed-gain numerical behavior is retained; reports add
+the follow-up's diagnostics. `--compare-linear` remains a distinct comparison of plants and
 cannot be combined with a controller map.
 
 ## Python and replay

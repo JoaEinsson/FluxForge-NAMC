@@ -78,3 +78,8 @@ its binaries distinct from archived Phase 2 evidence.
 The [offline tuning follow-up](current-tuning.md) uses a separate
 `build-phase3-tuning` directory with the same options. Its C design routine
 executes before the control loop and adds no dependency to the portable core.
+
+Use `build-phase3-validation` for the [qualification follow-up](control-qualification.md).
+The same seven CTest entries include gain separation, transition guards, metric
+oracles, replay, host-timing path counts and the 180-run synthetic campaign.
+Monotonic OS timers are linked only into `namc_sim`, never core or plant.

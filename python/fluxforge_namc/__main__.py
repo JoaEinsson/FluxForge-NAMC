@@ -22,6 +22,9 @@ def main() -> int:
     parser.add_argument("--control-max-reciprocity-error-h", type=float)
     parser.add_argument("--control-min-rcond", type=float)
     parser.add_argument("--model-failure", choices=("disable", "nominal"), default="disable")
+    parser.add_argument("--model-fault-step", type=int, default=-1,
+                        help="Host-only loss of the controller map at a zero-based step; -1 disables")
+    parser.add_argument("--timing", action="store_true", help="Opt-in host timing; not target WCET")
     parser.add_argument("--compare-controllers", action="store_true",
                         help="Compare nominal and flux-based PI on the same hidden plant")
     for name in ("bandwidth", "resistance", "min-bandwidth", "max-bandwidth", "max-rate-sample",
@@ -32,6 +35,7 @@ def main() -> int:
         ("steps", 2000, int), ("seed", 1, int), ("dt", 0.00005, float),
         ("id", 0.0, float), ("iq", 5.0, float), ("vdc", 48.0, float),
         ("load", 0.0, float), ("trace-stride", 0, int),
+        ("initial-speed", 0.0, float),
     ):
         parser.add_argument(f"--{name}", type=kind, default=value)
     args = parser.parse_args()
@@ -49,22 +53,22 @@ def main() -> int:
             parser.error("--controller-map requires --map and three separate control validation thresholds")
         if args.compare_linear:
             parser.error("--compare-linear cannot be combined with --controller-map; use --compare-controllers")
-    elif (args.compare_controllers or args.model_failure != "disable" or
+    elif (args.compare_controllers or args.model_failure != "disable" or args.model_fault_step != -1 or
           any(v is not None for v in control_policy)):
         parser.error("Control comparison, policy and thresholds require --controller-map")
     tuning_values = {name.removeprefix("tune_"): value for name, value in vars(args).items()
                      if name.startswith("tune_") and value is not None}
     tuning = None
     if tuning_values:
-        if (not args.controller_map or args.model_failure != "disable" or
+        if (not args.controller_map or
                 "bandwidth" not in tuning_values or "resistance" not in tuning_values):
-            parser.error("Tuning requires --controller-map, --tune-bandwidth, --tune-resistance and disable policy")
+            parser.error("Tuning requires --controller-map, --tune-bandwidth and --tune-resistance")
         for short, long in (("error", "design_error"), ("speed", "electrical_speed")):
             if short in tuning_values:
                 tuning_values[long] = tuning_values.pop(short)
         tuning = CurrentTuning(**tuning_values)
     config = {key: getattr(args, key) for key in (
-        "steps", "seed", "dt", "id", "iq", "vdc", "load", "trace_stride",
+        "steps", "seed", "dt", "id", "iq", "vdc", "load", "trace_stride", "initial_speed", "timing",
     )}
     try:
         if args.map:
@@ -76,12 +80,14 @@ def main() -> int:
                 )
             result = run_flux_map_reference(args.executable, model, **config,
                                            controller_map=controller_map, model_failure=args.model_failure,
-                                           tuning=tuning)
+                                           tuning=tuning, model_fault_step=args.model_fault_step)
             if args.compare_controllers:
                 tuned_result = result if tuning is not None else None
                 if tuning is not None:
                     result = run_flux_map_reference(args.executable, model, **config,
-                                                   controller_map=controller_map)
+                                                   controller_map=controller_map,
+                                                   model_failure=args.model_failure,
+                                                   model_fault_step=args.model_fault_step)
                 baseline = run_flux_map_reference(args.executable, model, **config)
                 result = {
                     "schema": "namc-controller-comparison-experimental-v1",

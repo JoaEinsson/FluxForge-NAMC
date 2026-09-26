@@ -147,9 +147,13 @@ and same-plant controller comparisons with replayable diagnostics. See the
 [local evidence](docs/development/phase3-evidence.md). A subsequent
 [offline tuning slice](docs/development/current-tuning.md) now calculates local
 PI gains under sample-rate, gain, voltage and current design constraints using
-an independent map/resistance estimate. Timing evidence, broader stability
-assessment, qualified tuned fallback and review remain outstanding; this is
-not complete Phase 3 or adaptive identification.
+an independent map/resistance estimate. The
+[qualification follow-up](docs/development/control-qualification.md) adds separate
+reserve gains, deterministic tuned-fallback transitions, a finite 180-run campaign
+and opt-in host timing with explicit unsuccessful scenarios. Qualification is
+scenario-limited, not a general stability or fallback guarantee. Broader stability
+assessment, target timing and independent review remain outstanding; this is not
+complete Phase 3 or adaptive identification.
 
 ### Scope
 

@@ -57,6 +57,9 @@ def _run_reference(
     controller: str = "nominal",
     model_failure: str = "disable",
     tuning: CurrentTuning | None = None,
+    initial_speed: float = 0.0,
+    model_fault_step: int = -1,
+    timing: bool = False,
 ) -> dict[str, Any]:
     """Return the C experiment's JSON report, or raise on a rejected/failed run.
 
@@ -70,6 +73,8 @@ def _run_reference(
         ("steps", steps), ("seed", seed), ("dt", dt),
         ("id", id), ("iq", iq), ("vdc", vdc), ("load", load),
         ("trace-stride", trace_stride),
+        ("initial-speed", initial_speed), ("model-fault-step", model_fault_step),
+        ("timing", int(timing)),
     ):
         command.extend((f"--{name}", str(value)))
     if tuning is not None:
@@ -85,6 +90,7 @@ def run_linear_reference(
     executable: str | Path, *, steps: int = 2000, seed: int = 1,
     dt: float = 0.00005, id: float = 0.0, iq: float = 5.0,
     vdc: float = 48.0, load: float = 0.0, trace_stride: int = 0,
+    initial_speed: float = 0.0, timing: bool = False,
 ) -> dict[str, Any]:
     """Run the native linear baseline, optionally retaining decimated samples.
 
@@ -95,6 +101,7 @@ def run_linear_reference(
     return _run_reference(
         executable, steps=steps, seed=seed, dt=dt, id=id, iq=iq,
         vdc=vdc, load=load, trace_stride=trace_stride,
+        initial_speed=initial_speed, timing=timing,
     )
 
 
@@ -104,6 +111,7 @@ def run_flux_map_reference(
     vdc: float = 48.0, load: float = 0.0, trace_stride: int = 0,
     controller_map: FluxMap | None = None, model_failure: str = "disable",
     tuning: CurrentTuning | None = None,
+    initial_speed: float = 0.0, model_fault_step: int = -1, timing: bool = False,
 ) -> dict[str, Any]:
     """Run a coupled-map hidden plant, using the same C loop as the baseline.
 
@@ -123,6 +131,7 @@ def run_flux_map_reference(
         controller="flux-map" if controller_map is not None else "nominal",
         model_failure=model_failure,
         tuning=tuning,
+        initial_speed=initial_speed, model_fault_step=model_fault_step, timing=timing,
     )
     data = result["plant"]["map"]
     data["source_id"] = bytes.fromhex(data.pop("source_id_utf8_hex")).decode("utf-8")
