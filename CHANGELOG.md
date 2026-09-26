@@ -10,6 +10,9 @@ once versioned releases begin.
 
 ### Added
 
+- Initial Phase 3 fixed-gain PI with coupled flux-based rotational compensation,
+  independently supplied controller maps, explicit disable/latched nominal
+  fallback policies and same-plant controller comparisons with replay diagnostics.
 - Configurable imported-map experiments in the native simulator, full-map
   replay reports, bounded decimated traces, torque diagnostics and a Python CLI
   for comparing nonlinear/linear plants with the same independent nominal PI.

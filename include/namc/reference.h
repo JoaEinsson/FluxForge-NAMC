@@ -16,7 +16,8 @@ typedef enum namc_result {
     NAMC_OK = 0,
     NAMC_INVALID_INPUT,
     NAMC_LIMIT_EXCEEDED,
-    NAMC_FAULT_LATCHED
+    NAMC_FAULT_LATCHED,
+    NAMC_MODEL_REJECTED
 } namc_result_t;
 
 typedef struct namc_abc { double a, b, c; } namc_abc_t;

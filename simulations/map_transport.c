@@ -7,10 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-static double namc_id_axis[NAMC_FLUX_MAX_AXIS], namc_iq_axis[NAMC_FLUX_MAX_AXIS];
-static double namc_psi_d[NAMC_FLUX_MAX_AXIS * NAMC_FLUX_MAX_AXIS];
-static double namc_psi_q[NAMC_FLUX_MAX_AXIS * NAMC_FLUX_MAX_AXIS];
-static char namc_source[128];
+typedef struct namc_sim_map_storage {
+    double id_axis[NAMC_FLUX_MAX_AXIS], iq_axis[NAMC_FLUX_MAX_AXIS];
+    double psi_d[NAMC_FLUX_MAX_AXIS * NAMC_FLUX_MAX_AXIS];
+    double psi_q[NAMC_FLUX_MAX_AXIS * NAMC_FLUX_MAX_AXIS];
+    char source[128];
+} namc_sim_map_storage_t;
+static namc_sim_map_storage_t namc_storage[2];
 
 static int namc_read_token(char *token, size_t capacity)
 {
@@ -52,15 +55,17 @@ static int namc_read_integer(unsigned int maximum, unsigned int *out)
     return 1;
 }
 
-int namc_sim_read_map(namc_flux_map_t *map)
+int namc_sim_read_map(namc_flux_map_t *map, unsigned int slot)
 {
     char magic[32];
     unsigned int nd, nq, evidence, source_length, byte;
     size_t i;
-    int trailing;
+    namc_sim_map_storage_t *storage;
     namc_flux_result_t status;
     namc_flux_limits_t limits;
     namc_flux_data_t data = {0};
+    if (slot >= 2U) { return 0; }
+    storage = &namc_storage[slot];
     if (!namc_read_token(magic, sizeof(magic)) || strcmp(magic, "NAMC_FLUX_TRANSPORT_V1") != 0 ||
         !namc_read_integer(1U, &data.version) || data.version != 1U ||
         !namc_read_integer(1U, &data.units) || data.units != 1U ||
@@ -80,43 +85,47 @@ int namc_sim_read_map(namc_flux_map_t *map)
         if (!namc_read_integer(255U, &byte) || byte == 0U) {
             return 0;
         }
-        namc_source[i] = (char)(unsigned char)byte;
+        storage->source[i] = (char)(unsigned char)byte;
     }
-    namc_source[source_length] = '\0';
+    storage->source[source_length] = '\0';
     data.nd = nd;
     data.nq = nq;
     data.count = (size_t)nd * nq;
     data.evidence = (namc_flux_evidence_t)evidence;
-    data.source_id = namc_source;
-    data.id_axis = namc_id_axis;
-    data.iq_axis = namc_iq_axis;
-    data.psi_d = namc_psi_d;
-    data.psi_q = namc_psi_q;
+    data.source_id = storage->source;
+    data.id_axis = storage->id_axis;
+    data.iq_axis = storage->iq_axis;
+    data.psi_d = storage->psi_d;
+    data.psi_q = storage->psi_q;
     for (i = 0U; i < data.nd; ++i) {
-        if (!namc_read_number(&namc_id_axis[i])) { return 0; }
+        if (!namc_read_number(&storage->id_axis[i])) { return 0; }
     }
     for (i = 0U; i < data.nq; ++i) {
-        if (!namc_read_number(&namc_iq_axis[i])) { return 0; }
+        if (!namc_read_number(&storage->iq_axis[i])) { return 0; }
     }
     for (i = 0U; i < data.count; ++i) {
-        if (!namc_read_number(&namc_psi_d[i])) { return 0; }
+        if (!namc_read_number(&storage->psi_d[i])) { return 0; }
     }
     for (i = 0U; i < data.count; ++i) {
-        if (!namc_read_number(&namc_psi_q[i])) { return 0; }
+        if (!namc_read_number(&storage->psi_q[i])) { return 0; }
     }
-    /* No extra tokens, and no unbounded trailing whitespace scan. */
-    for (i = 0U; i < 1024U; ++i) {
-        trailing = getchar();
-        if (trailing == EOF) { break; }
-        if (!isspace((unsigned char)trailing)) { return 0; }
-    }
-    if (i == 1024U || ferror(stdin)) { return 0; }
     status = namc_flux_map_prepare(&data, &limits, map);
     if (status != NAMC_FLUX_OK) {
         fprintf(stderr, "Map preparation rejected: flux status %d.\n", (int)status);
         return 0;
     }
     return 1;
+}
+
+int namc_sim_map_end(void)
+{
+    size_t i;
+    for (i = 0U; i < 1024U; ++i) {
+        int trailing = getchar();
+        if (trailing == EOF) { return !ferror(stdin); }
+        if (!isspace((unsigned char)trailing)) { return 0; }
+    }
+    return 0;
 }
 
 static void namc_print_array(const double *values, size_t count)

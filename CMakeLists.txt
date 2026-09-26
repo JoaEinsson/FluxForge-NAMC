@@ -116,6 +116,13 @@ if(BUILD_TESTING)
     namc_enable_strict_warnings(namc_flux_map_test)
     add_test(NAME namc_coupled_flux_map COMMAND namc_flux_map_test)
 
+    add_executable(namc_model_current_test tests/model_current_test.c)
+    target_link_libraries(namc_model_current_test PRIVATE namc_plant)
+    set_target_properties(namc_model_current_test PROPERTIES
+        C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+    namc_enable_strict_warnings(namc_model_current_test)
+    add_test(NAME namc_model_current COMMAND namc_model_current_test)
+
     option(NAMC_REQUIRE_PYTEST "Fail configuration when pytest is unavailable" OFF)
     find_package(Python3 3.10 COMPONENTS Interpreter QUIET)
     set(NAMC_HAS_PYTEST FALSE)

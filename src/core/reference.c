@@ -1,4 +1,5 @@
 #include "namc/reference.h"
+#include "namc/model_current.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -158,10 +159,11 @@ static int namc_config_valid(const namc_current_config_t *c)
         isfinite(c->electrical_speed_limit) && c->electrical_speed_limit > 0.0;
 }
 
-namc_result_t namc_current_step(
+static namc_result_t namc_current_step_internal(
     const namc_current_config_t *config, namc_current_state_t *state,
     namc_dq_t reference, namc_abc_t measured_current, double electrical_angle,
-    double electrical_speed, double vdc, namc_duty_t *out)
+    double electrical_speed, double vdc, namc_duty_t *out,
+    int use_map, const namc_flux_map_t *map, namc_flux_result_t *model_failure)
 {
     namc_ab_t stationary, command;
     namc_dq_t current, raw, limited;
@@ -208,10 +210,24 @@ namc_result_t namc_current_step(
     }
     ed = reference.d - current.d;
     eq = reference.q - current.q;
-    raw.d = config->kp_d * ed + state->integral_d -
-            electrical_speed * config->lq * current.q;
-    raw.q = config->kp_q * eq + state->integral_q +
-            electrical_speed * (config->ld * current.d + config->pm_flux);
+    if (use_map) {
+        namc_dq_t flux;
+        namc_flux_result_t status = namc_flux_map_lookup(map, current, &flux, NULL);
+        if (status != NAMC_FLUX_OK) {
+            *model_failure = status;
+            /* No state update before the explicit failure policy is applied.
+             * Output was disabled at entry; all measurement guards ran first. */
+            return NAMC_MODEL_REJECTED;
+        }
+        raw.d = config->kp_d * ed + state->integral_d - electrical_speed * flux.q;
+        raw.q = config->kp_q * eq + state->integral_q + electrical_speed * flux.d;
+    } else {
+        /* Preserve baseline arithmetic and independent priors exactly. */
+        raw.d = config->kp_d * ed + state->integral_d -
+                electrical_speed * config->lq * current.q;
+        raw.q = config->kp_q * eq + state->integral_q +
+                electrical_speed * (config->ld * current.d + config->pm_flux);
+    }
     magnitude = hypot(raw.d, raw.q);
     voltage_limit = vdc / namc_sqrt3;
     if (!namc_finite_dq(raw) || !isfinite(magnitude) || voltage_limit <= 0.0) {
@@ -241,4 +257,60 @@ fault:
     state->faulted = 1;
     namc_disable(out);
     return result;
+}
+
+namc_result_t namc_current_step(
+    const namc_current_config_t *config, namc_current_state_t *state,
+    namc_dq_t reference, namc_abc_t measured_current, double electrical_angle,
+    double electrical_speed, double vdc, namc_duty_t *out)
+{
+    return namc_current_step_internal(config, state, reference, measured_current,
+        electrical_angle, electrical_speed, vdc, out, 0, NULL, NULL);
+}
+
+void namc_model_current_reset(namc_model_current_state_t *state)
+{
+    if (state != NULL) {
+        namc_current_reset(&state->pi);
+        state->fallback_latched = 0;
+        state->model_failure = NAMC_FLUX_OK;
+    }
+}
+
+namc_result_t namc_model_current_step(
+    const namc_model_current_config_t *config, namc_model_current_state_t *state,
+    namc_dq_t reference, namc_abc_t measured_current, double electrical_angle,
+    double electrical_speed, double vdc, namc_duty_t *out)
+{
+    namc_result_t result;
+    namc_disable(out);
+    if (state == NULL) { return NAMC_INVALID_INPUT; }
+    if (state->pi.faulted != 0) { return NAMC_FAULT_LATCHED; }
+    if (config == NULL || config->version != NAMC_MODEL_CURRENT_VERSION ||
+        (config->failure_policy != NAMC_MODEL_DISABLE &&
+         config->failure_policy != NAMC_MODEL_NOMINAL_FALLBACK) ||
+        (state->fallback_latched != 0 && state->fallback_latched != 1)) {
+        state->pi.faulted = 1;
+        return NAMC_INVALID_INPUT;
+    }
+    /* A policy change cannot re-enable a map or keep fallback running when
+     * the caller now requires disablement. No automatic retry on a new map. */
+    if (state->fallback_latched && config->failure_policy == NAMC_MODEL_DISABLE) {
+        state->pi.faulted = 1;
+        return NAMC_MODEL_REJECTED;
+    }
+    result = namc_current_step_internal(&config->nominal, &state->pi, reference,
+        measured_current, electrical_angle, electrical_speed, vdc, out,
+        !state->fallback_latched, config->map, &state->model_failure);
+    if (result != NAMC_MODEL_REJECTED) { return result; }
+    if (config->failure_policy == NAMC_MODEL_DISABLE) {
+        state->pi.faulted = 1;
+        return result;
+    }
+    state->fallback_latched = 1;
+    namc_current_reset(&state->pi);
+    /* The nominal path runs the same hard guards again. No fallback is
+     * permitted for invalid measurements, invalid PI state or hard limits. */
+    return namc_current_step_internal(&config->nominal, &state->pi, reference,
+        measured_current, electrical_angle, electrical_speed, vdc, out, 0, NULL, NULL);
 }

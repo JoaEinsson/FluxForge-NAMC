@@ -137,8 +137,10 @@ the map again. Direct native JSON diagnostics encode source bytes as hex;
 the Python wrapper restores `source_id` as UTF-8. This bridge is not the
 future persistent/embedded serialization format or a CRC/activation protocol.
 
-The simulator reserves storage for up to two 256x256 tables, two axes, and
-10,000 trace rows (roughly 2 MB on the tested host), even with tracing off.
+The simulator now reserves two independent map slots (each with two 256x256
+tables and two axes) and 10,000 trace rows, roughly 3 MB on the tested host,
+even with tracing off. The second slot supports the explicit, separate
+[model-aware controller](model-aware-current.md); nominal PI remains the default.
 That is host harness memory, not a claimed embedded footprint. Current
 limits/guards do not establish stability for every accepted scenario.
 
@@ -152,4 +154,5 @@ refinement, trace metrics/decimation and runtime domain rejection. See
 Broader map-quality/operating-region assessment, independent review and CI
 remain required before Phase 2 closure. Map-aware control, identification,
 fitting, candidate correction/activation and hardware integration are not
-implemented by this delivery.
+implemented by this Phase 2 delivery. The first separate Phase 3 slice adds
+flux-map compensation and same-plant controller comparisons as linked above.

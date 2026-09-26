@@ -78,6 +78,11 @@ The initial repository establishes:
   reports, bounded traces and linear-plant comparisons
   ([magnetic experiments](docs/development/magnetic-experiments.md)).
 
+The first Phase 3 slice also provides fixed-gain PI with coupled flux-based
+compensation, explicit model-failure policies and same-plant comparisons
+([model-aware current control](docs/development/model-aware-current.md)).
+Automatic gain tuning and complete Phase 3 validation remain outstanding.
+
 Identification, map fitting/correction, adaptive control, nonideal
 inverters/sensors, and hardware integration remain planned. The linear
 reference is a comparison baseline, not the project's primary magnetic model.

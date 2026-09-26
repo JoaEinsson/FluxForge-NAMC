@@ -1,6 +1,6 @@
 # Build and Test
 
-This document covers the Phase 0 foundation and initial Phase 1/2 slices. It
+This document covers the Phase 0 foundation and initial Phase 1/2/3 slices. It
 builds the experimental, pre-1.0 core, shared binding library, separate linear
 and coupled-map plants, native closed-loop simulator and tests. All motor
 behavior is simulation-only; see the [linear reference](linear-reference.md)
@@ -56,7 +56,7 @@ ignored by Git. The current API is experimental; a successful build is not
 evidence of motor-control or hardware readiness.
 
 The suite includes `namc_core_api`, `namc_linear_reference`, `namc_sim_smoke`,
-`namc_coupled_flux_map`, and `namc_python_binding` (including native simulator
+`namc_coupled_flux_map`, `namc_model_current`, and `namc_python_binding` (including native simulator
 orchestration and coupled-map import/query tests).
 CTest passes explicit DLL and executable paths through `NAMC_CORE_LIBRARY`
 and `NAMC_SIM_EXECUTABLE`; Python never substitutes its own motor equations.
@@ -68,3 +68,8 @@ The shared core also exports the experimental coupled flux-map API; the plant
 target contains both linear and nonlinear simulation models. See the
 [map guide](flux-maps.md) and [Phase 2 evidence](phase2-evidence.md). No extra
 production dependency is needed for these additions.
+
+The [first model-aware controller](model-aware-current.md) reuses core guards
+and adds a separate accepted controller model to the experiment runner. Use
+a fresh `build-phase3` directory with the same configuration options to keep
+its binaries distinct from archived Phase 2 evidence.
