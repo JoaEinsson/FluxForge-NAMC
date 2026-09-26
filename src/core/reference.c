@@ -283,10 +283,12 @@ namc_result_t namc_model_current_step(
     double electrical_speed, double vdc, namc_duty_t *out)
 {
     namc_result_t result;
+    namc_current_config_t active;
     namc_disable(out);
     if (state == NULL) { return NAMC_INVALID_INPUT; }
     if (state->pi.faulted != 0) { return NAMC_FAULT_LATCHED; }
     if (config == NULL || config->version != NAMC_MODEL_CURRENT_VERSION ||
+        !namc_config_valid(&config->nominal) ||
         (config->failure_policy != NAMC_MODEL_DISABLE &&
          config->failure_policy != NAMC_MODEL_NOMINAL_FALLBACK) ||
         (state->fallback_latched != 0 && state->fallback_latched != 1)) {
@@ -299,7 +301,14 @@ namc_result_t namc_model_current_step(
         state->pi.faulted = 1;
         return NAMC_MODEL_REJECTED;
     }
-    result = namc_current_step_internal(&config->nominal, &state->pi, reference,
+    active = config->nominal;
+    if (!state->fallback_latched && config->mapped_gains != NULL) {
+        active.kp_d = config->mapped_gains->kp_d;
+        active.kp_q = config->mapped_gains->kp_q;
+        active.ki_d = config->mapped_gains->ki_d;
+        active.ki_q = config->mapped_gains->ki_q;
+    }
+    result = namc_current_step_internal(&active, &state->pi, reference,
         measured_current, electrical_angle, electrical_speed, vdc, out,
         !state->fallback_latched, config->map, &state->model_failure);
     if (result != NAMC_MODEL_REJECTED) { return result; }

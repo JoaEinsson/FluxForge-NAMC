@@ -45,6 +45,11 @@ unreviewed online gain changes. Physical motor identification is a later phase.
 
 ## Alternatives and consequences
 
+Follow-up: [proposed ADR-0009](0009-separate-reserve-gains-and-qualify-transitions.md)
+extends the initial disable-only experiment restriction with separate reserve
+gains and scenario-limited transition evidence. The original tuning equations
+and startup-only candidate activation remain unchanged.
+
 A full matrix PI or online gain schedule could better address coupled dynamics
 but changes the runtime controller, antiwindup and transition behavior. The
 present slice retains that runtime architecture. Excitation-based autotuning

@@ -10,6 +10,9 @@ once versioned releases begin.
 
 ### Added
 
+- Separate reserve gains for tuned model-aware PI, deterministic model-loss
+  transition tests, initial-speed/fault-injection experiments, transient metrics,
+  opt-in host timing and a finite campaign retaining unsuccessful scenarios.
 - Bounded offline PI gain design from accepted coupled-map derivatives and an
   independent resistance estimate, startup-only application, replayable tuning
   diagnostics and three-way same-plant controller comparisons.
@@ -42,6 +45,9 @@ once versioned releases begin.
 
 ### Changed
 
+- Experimental model-current configuration version is now 2 with an optional
+  immutable mapped-gain pointer; callers must rebuild and initialize that field.
+  No stable API/ABI or report-format compatibility is promised.
 - Corrected the Phase 3 first-slice evidence's initial angle for seed 42 to
   match the simulator's recorded LCG-selected angle; result metrics are unchanged.
 - Magnetic-model direction now centers on coupled flux-linkage LUTs, data

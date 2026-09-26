@@ -122,10 +122,9 @@ def test_bad_or_infeasible_tuning_has_no_success_report(changes):
     assert failure.value.returncode == 2 and not failure.value.stdout
 
 
-@pytest.mark.parametrize("controller,failure_policy", [(None, "disable"), ("model", "nominal")])
-def test_no_implicit_controller_model_or_unvalidated_fallback(controller, failure_policy):
+def test_no_implicit_controller_model():
     with pytest.raises(subprocess.CalledProcessError) as failure:
-        run(controller=model() if controller else None, tuning=REQUEST, model_failure=failure_policy)
+        run(tuning=REQUEST)
     assert failure.value.returncode == 2 and not failure.value.stdout
 
 

@@ -83,8 +83,11 @@ compensation, explicit model-failure policies and same-plant comparisons
 ([model-aware current control](docs/development/model-aware-current.md)).
 An additional [offline tuning slice](docs/development/current-tuning.md)
 calculates bounded local PI gains from the accepted map and an explicit
-resistance estimate. Online adaptation and complete Phase 3 validation remain
-outstanding.
+resistance estimate. The [qualification follow-up](docs/development/control-qualification.md)
+separates reserve gains, tests model-loss transitions and adds finite operating-point
+campaigns with transient and opt-in host timing metrics. Reported infeasible and
+unmet cases limit the qualified envelope; broader stability assessment and human
+review remain outstanding. Online adaptation is not implemented.
 
 Identification, map fitting/correction, adaptive control, nonideal
 inverters/sensors, and hardware integration remain planned. The linear

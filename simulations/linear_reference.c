@@ -5,6 +5,7 @@
 #include "namc/model_current.h"
 #include "namc/reference.h"
 #include "map_transport.h"
+#include "host_timing.h"
 
 #include <errno.h>
 #include <math.h>
@@ -26,6 +27,24 @@ typedef struct namc_sim_sample {
 /* Host-only bounded diagnostic storage, not part of the controller. */
 static namc_sim_sample_t namc_trace[NAMC_TRACE_CAPACITY];
 
+typedef struct namc_timing_summary {
+    unsigned int count;
+    double sum, min, max;
+} namc_timing_summary_t;
+
+static void namc_record_timing(namc_timing_summary_t *s, double seconds)
+{
+    if (s->count == 0U || seconds < s->min) { s->min = seconds; }
+    s->max = fmax(s->max, seconds);
+    s->sum += seconds;
+    ++s->count;
+}
+
+static double namc_axis_overshoot(double current, double target)
+{
+    return target == 0.0 ? fabs(current) : fmax(0.0, (target > 0.0 ? 1.0 : -1.0)*(current-target));
+}
+
 static int namc_parse_number(const char *text, double *value)
 {
     char *end;
@@ -40,6 +59,7 @@ static void namc_usage(void)
         "[--dt 1e-7..1e-4] [--id -10..10] [--iq -10..10] [--vdc 12..60] "
         "[--load -2..2] [--plant linear|lut] [--trace-stride 0..1000000] "
         "[--controller nominal|flux-map] [--model-failure disable|nominal] "
+        "[--initial-speed -500..500] [--model-fault-step -1..steps-1] [--timing 0|1] "
         "[--tune-bandwidth rad/s --tune-resistance ohm] "
         "[--tune-min-bandwidth rad/s] [--tune-max-bandwidth rad/s] "
         "[--tune-max-rate-sample ratio] [--tune-max-kp V/A] [--tune-max-ki V/As] "
@@ -52,6 +72,13 @@ int main(int argc, char **argv)
     unsigned int steps = 2000U;
     uint32_t seed = 1U, random_state;
     double dt = 0.00005, id = 0.0, iq = 5.0, vdc = 48.0, load = 0.0;
+    double initial_speed = 0.0, settling_band, peak_error = 0.0;
+    double overshoot_d = 0.0, overshoot_q = 0.0, fallback_peak_error = 0.0;
+    double transition_jump = 0.0;
+    int last_outside = -1, model_fault_step = -1, measure_timing = 0;
+    double seconds_per_tick = 0.0;
+    namc_timing_summary_t timing[4] = {{0}};
+    namc_ab_t previous_voltage = {0.0, 0.0};
     double initial_angle, squared_error = 0.0, tail_error = 0.0;
     double max_current = 0.0, min_duty = 1.0, max_duty = 0.0;
     unsigned int n, tail_count = 0U;
@@ -70,6 +97,7 @@ int main(int argc, char **argv)
         10.0, 2000.0, 0.2, 10.0, 2000.0, 1.0, 0.5
     };
     namc_tuning_candidate_t tuned = {0};
+    namc_current_gains_t mapped_gains = {0};
     namc_model_current_config_t model_controller;
     namc_model_current_state_t model_state;
     namc_flux_map_t map = {0};
@@ -154,16 +182,24 @@ int main(int argc, char **argv)
             vdc = value;
         } else if (strcmp(key, "--load") == 0 && fabs(value) <= 2.0) {
             load = value;
+        } else if (strcmp(key, "--initial-speed") == 0 && fabs(value) <= 500.0) {
+            initial_speed = value;
+        } else if (strcmp(key, "--model-fault-step") == 0 && value >= -1.0 &&
+                   value < 1000000.0 && floor(value) == value) {
+            model_fault_step = (int)value;
+        } else if (strcmp(key, "--timing") == 0 && (value == 0.0 || value == 1.0)) {
+            measure_timing = (int)value;
         } else {
             namc_usage();
             return 2;
         }
     }
-    if (tune_options && (tune_required != 3U || !use_control_map || fallback_policy)) {
-        fprintf(stderr, "Tuning requires explicit bandwidth/resistance, a controller map and disable policy.\n");
+    if (tune_options && (tune_required != 3U || !use_control_map)) {
+        fprintf(stderr, "Tuning requires explicit bandwidth/resistance and a controller map.\n");
         return 2;
     }
-    if ((!use_control_map && fallback_policy) || hypot(id, iq) > controller.current_limit ||
+    if ((!use_control_map && (fallback_policy || model_fault_step >= 0)) ||
+        model_fault_step >= (int)steps || hypot(id, iq) > controller.current_limit ||
         (trace_stride != 0U && (steps - 1U) / trace_stride + 1U > NAMC_TRACE_CAPACITY)) {
         fprintf(stderr, "Configuration rejected: reference limit or trace capacity.\n");
         return 2;
@@ -195,7 +231,11 @@ int main(int argc, char **argv)
     random_state = seed * UINT32_C(1664525) + UINT32_C(1013904223);
     initial_angle = ((double)random_state / 4294967296.0) * 6.2831853071795864769;
     state.angle = initial_angle;
+    state.speed = initial_speed;
     controller.sample_time = dt;
+    settling_band = fmax(0.02, 0.02*hypot(id, iq));
+    peak_error = hypot(id, iq); /* Include the initial zero-current state. */
+    last_outside = peak_error > settling_band ? 0 : -1;
     if (tune_options) {
         namc_tuning_result_t status;
         tuning.operating_current = reference;
@@ -207,17 +247,22 @@ int main(int argc, char **argv)
         }
         /* Apply only the candidate gains, before reset/first enabled sample.
          * No change to independent limits, nominal magnetic priors or kaw. */
-        controller.kp_d = tuned.kp_d;
-        controller.kp_q = tuned.kp_q;
-        controller.ki_d = tuned.ki_d;
-        controller.ki_q = tuned.ki_q;
+        mapped_gains.kp_d = tuned.kp_d;
+        mapped_gains.kp_q = tuned.kp_q;
+        mapped_gains.ki_d = tuned.ki_d;
+        mapped_gains.ki_q = tuned.ki_q;
     }
     model_controller.version = NAMC_MODEL_CURRENT_VERSION;
     model_controller.nominal = controller;
     model_controller.map = &control_map;
     model_controller.failure_policy = fallback_policy ? NAMC_MODEL_NOMINAL_FALLBACK : NAMC_MODEL_DISABLE;
+    model_controller.mapped_gains = tune_options ? &mapped_gains : NULL;
     namc_model_current_reset(&model_state);
     namc_current_reset(&control_state);
+    if (measure_timing && !namc_host_timer_init(&seconds_per_tick)) {
+        fprintf(stderr, "Host timer unavailable.\n");
+        return 2;
+    }
     for (n = 0U; n < steps; ++n) {
         namc_dq_t current = {state.id, state.iq};
         namc_ab_t stationary_current, voltage;
@@ -225,11 +270,19 @@ int main(int argc, char **argv)
         namc_duty_t duty;
         namc_result_t control_result;
         double error;
+        uint64_t start_ticks = 0U, end_ticks = 0U;
+        int was_fallback = model_state.fallback_latched;
         /* Ideal sensor adapter. Pole-pair count 4 is an independent encoder
          * configuration, not read from hidden magnetic/mechanical truth. */
         if (namc_inverse_park(current, state.angle, &stationary_current) != NAMC_OK ||
             namc_inverse_clarke(stationary_current, &measured_current) != NAMC_OK) {
             fprintf(stderr, "Simulation stopped: sensor at step %u.\n", n);
+            return 1;
+        }
+        /* Host fault injection changes only the controller's model handle. */
+        if ((int)n == model_fault_step) { model_controller.map = NULL; }
+        if (measure_timing && !namc_host_timer_read(&start_ticks)) {
+            fprintf(stderr, "Host timer failed before sample %u.\n", n);
             return 1;
         }
         if (use_control_map) {
@@ -239,6 +292,15 @@ int main(int argc, char **argv)
             control_result = namc_current_step(&controller, &control_state, reference,
                 measured_current, state.angle, 4.0 * state.speed, vdc, &duty);
         }
+        if (measure_timing) {
+            unsigned int bucket = !use_control_map ? 0U :
+                (!model_state.fallback_latched ? 1U : (was_fallback ? 3U : 2U));
+            if (!namc_host_timer_read(&end_ticks) || end_ticks < start_ticks) {
+                fprintf(stderr, "Host timer failed after sample %u.\n", n);
+                return 1;
+            }
+            namc_record_timing(&timing[bucket], (double)(end_ticks-start_ticks)*seconds_per_tick);
+        }
         if (control_result != NAMC_OK || namc_average_inverter(duty, vdc, &voltage) != NAMC_OK) {
             fprintf(stderr, "Simulation stopped: controller/inverter at step %u, status %d, model status %d.\n",
                 n, (int)control_result, (int)model_state.model_failure);
@@ -246,8 +308,14 @@ int main(int argc, char **argv)
         }
         if (model_state.fallback_latched) {
             ++fallback_steps;
-            if (fallback_first_step < 0) { fallback_first_step = (int)n; }
+            if (fallback_first_step < 0) {
+                fallback_first_step = (int)n;
+                transition_jump = hypot(voltage.alpha-previous_voltage.alpha,
+                                        voltage.beta-previous_voltage.beta);
+                fallback_peak_error = hypot(current.d-id, current.q-iq);
+            }
         }
+        previous_voltage = voltage;
         if (hypot(voltage.alpha, voltage.beta) >= vdc / sqrt(3.0) * (1.0 - 1e-12)) {
             ++voltage_limit_steps;
         }
@@ -282,6 +350,11 @@ int main(int argc, char **argv)
         max_duty = fmax(max_duty, fmax(duty.a, fmax(duty.b, duty.c)));
         error = (state.id - id) * (state.id - id) + (state.iq - iq) * (state.iq - iq);
         squared_error += error;
+        peak_error = fmax(peak_error, sqrt(error));
+        overshoot_d = fmax(overshoot_d, namc_axis_overshoot(state.id, id));
+        overshoot_q = fmax(overshoot_q, namc_axis_overshoot(state.iq, iq));
+        if (sqrt(error) > settling_band) { last_outside = (int)n + 1; }
+        if (model_state.fallback_latched) { fallback_peak_error = fmax(fallback_peak_error, sqrt(error)); }
         if (n >= steps / 2U) {
             tail_error += error;
             ++tail_count;
@@ -313,13 +386,15 @@ int main(int argc, char **argv)
         "  \"dt_s\": %.17g,\n  \"iq_reference_A\": %.17g,\n"
         "  \"id_reference_A\": %.17g,\n  \"trace_stride\": %u,\n"
         "  \"vdc_V\": %.17g,\n  \"load_Nm\": %.17g,\n"
-        "  \"initial\": {\"id_A\": 0, \"iq_A\": 0, \"speed_rad_s\": 0, "
+        "  \"model_fault_step\": %d,\n"
+        "  \"initial\": {\"id_A\": 0, \"iq_A\": 0, \"speed_rad_s\": %.17g, "
         "\"electrical_angle_rad\": %.17g},\n",
         use_lut ? "namc-flux-map-reference-experimental-v1" : "namc-linear-reference-experimental-v1",
         use_lut ? "coupled-flux-lut" : "linear",
         namc_core_version_string(), NAMC_BUILD_REVISION, NAMC_BUILD_COMPILER,
         NAMC_BUILD_CONFIGURATION,
-        (double)seed, steps, dt, iq, id, trace_stride, vdc, load, initial_angle);
+        (double)seed, steps, dt, iq, id, trace_stride, vdc, load,
+        model_fault_step, initial_speed, initial_angle);
     if (use_lut) {
         printf("  \"plant\": {\"model_version\": %u, \"R_ohm\": %.17g, "
             "\"J_kg_m2\": %.17g, \"B_Nm_s_rad\": %.17g, \"pole_pairs\": %u,\n",
@@ -368,22 +443,50 @@ int main(int argc, char **argv)
         "\"initial_integral_q_V\": 0},\n",
         controller.model_version, controller.sample_time,
         use_control_map ? "flux-map-pi" : "nominal-pi", fallback_policy ? "nominal" : "disable",
-        controller.kp_d,
-        controller.kp_q, controller.ki_d, controller.ki_q, controller.antiwindup_gain,
+        tune_options ? tuned.kp_d : controller.kp_d,
+        tune_options ? tuned.kp_q : controller.kp_q,
+        tune_options ? tuned.ki_d : controller.ki_d,
+        tune_options ? tuned.ki_q : controller.ki_q, controller.antiwindup_gain,
         controller.ld, controller.lq, controller.pm_flux, controller.current_limit,
         controller.min_bus_voltage, controller.max_bus_voltage,
         controller.electrical_speed_limit, id);
+    if (fallback_policy) {
+        printf("  \"fallback_gains\": {\"kp_d_V_A\": %.17g, \"kp_q_V_A\": %.17g, "
+            "\"ki_d_V_As\": %.17g, \"ki_q_V_As\": %.17g},\n",
+            controller.kp_d, controller.kp_q, controller.ki_d, controller.ki_q);
+    }
     printf("  \"final\": {\"id_A\": %.17g, \"iq_A\": %.17g, "
         "\"speed_rad_s\": %.17g, \"electrical_angle_rad\": %.17g, \"torque_Nm\": %.17g},\n"
         "  \"metrics\": {\"rms_current_error_A\": %.17g, "
         "\"tail_rms_current_error_A\": %.17g, \"max_current_A\": %.17g, "
         "\"min_duty\": %.17g, \"max_duty\": %.17g, \"max_abs_torque_Nm\": %.17g, "
-        "\"voltage_limit_steps\": %u, \"fallback_steps\": %u},\n"
+        "\"voltage_limit_steps\": %u, \"fallback_steps\": %u, "
+        "\"peak_current_error_A\": %.17g, \"overshoot_d_A\": %.17g, \"overshoot_q_A\": %.17g, "
+        "\"settling_band_A\": %.17g, \"settling_time_s\": %.17g, "
+        "\"fallback_peak_error_A\": %.17g, \"fallback_transition_voltage_jump_V\": %.17g},\n"
         "  \"model_diagnostics\": {\"first_fallback_step_zero_based\": %d, \"flux_status\": %d},\n",
         state.id, state.iq, state.speed, state.angle, torque,
         sqrt(squared_error / (double)steps), sqrt(tail_error / (double)tail_count),
         max_current, min_duty, max_duty, max_abs_torque, voltage_limit_steps, fallback_steps,
+        peak_error, overshoot_d, overshoot_q, settling_band,
+        last_outside == (int)steps ? -1.0 : (double)(last_outside+1)*dt,
+        fallback_peak_error, transition_jump,
         fallback_first_step, (int)model_state.model_failure);
+    if (measure_timing) {
+        const char *names[] = {"nominal", "mapped", "fallback_transition", "fallback_latched"};
+        printf("  \"timing\": {\"scope\": \"host-wall-time-not-WCET\", \"timer\": \"%s\", "
+            "\"seconds_per_tick\": %.17g, \"paths\": {", namc_host_timer_name(), seconds_per_tick);
+        for (n = 0U; n < 4U; ++n) {
+            const namc_timing_summary_t *s = &timing[n];
+            printf("%s\"%s\": {\"samples\": %u", n ? ", " : "", names[n], s->count);
+            if (s->count) {
+                printf(", \"min_s\": %.17g, \"mean_s\": %.17g, \"max_s\": %.17g",
+                    s->min, s->sum/(double)s->count, s->max);
+            }
+            printf("}");
+        }
+        printf("}},\n");
+    }
     printf("  \"trace\": [");
     for (n = 0U; n < trace_count; ++n) {
         const namc_sim_sample_t *s = &namc_trace[n];
