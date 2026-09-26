@@ -5,6 +5,9 @@ rotational compensation**. It does not yet implement automatic gain tuning,
 Jacobian-based dynamic decoupling, identification or adaptive map correction.
 See the [proposed ADR-0007](../adr/0007-flux-map-current-compensation.md).
 
+The subsequent [offline tuning slice](current-tuning.md) can now calculate
+bounded startup gains; this document describes the original fixed-gain mode.
+
 ## Controller boundary and equations
 
 The experimental API in `include/namc/model_current.h` receives an independently
@@ -139,8 +142,9 @@ blocking I/O, recursion or unbounded iteration is added to the control path.
 
 ## Remaining Phase 3 work
 
-Bounded automatic tuning, derivative-based dynamic compensation if selected,
-timing instrumentation, wider stability/operating-region assessment and
+Offline local gain design is available in the [tuning follow-up](current-tuning.md).
+Derivative-based dynamic compensation if selected, timing instrumentation,
+wider stability/operating-region assessment and
 independent review remain outstanding. No runtime map learning/activation,
 motor identification, hardware validation or general fallback guarantee is
 claimed. See [executed evidence](phase3-evidence.md).

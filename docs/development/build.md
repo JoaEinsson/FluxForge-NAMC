@@ -56,8 +56,9 @@ ignored by Git. The current API is experimental; a successful build is not
 evidence of motor-control or hardware readiness.
 
 The suite includes `namc_core_api`, `namc_linear_reference`, `namc_sim_smoke`,
-`namc_coupled_flux_map`, `namc_model_current`, and `namc_python_binding` (including native simulator
-orchestration and coupled-map import/query tests).
+`namc_coupled_flux_map`, `namc_model_current`, `namc_current_tuning`, and
+`namc_python_binding` (including native simulator orchestration, coupled-map
+import/query and offline tuning tests).
 CTest passes explicit DLL and executable paths through `NAMC_CORE_LIBRARY`
 and `NAMC_SIM_EXECUTABLE`; Python never substitutes its own motor equations.
 Existing GCC/Clang CI jobs exercise these added targets without changing
@@ -73,3 +74,7 @@ The [first model-aware controller](model-aware-current.md) reuses core guards
 and adds a separate accepted controller model to the experiment runner. Use
 a fresh `build-phase3` directory with the same configuration options to keep
 its binaries distinct from archived Phase 2 evidence.
+
+The [offline tuning follow-up](current-tuning.md) uses a separate
+`build-phase3-tuning` directory with the same options. Its C design routine
+executes before the control loop and adds no dependency to the portable core.
