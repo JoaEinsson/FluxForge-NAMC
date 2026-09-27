@@ -19,7 +19,7 @@ validation dependency remains unresolved.
 | 1 — Linear reference system | In progress | Pre-`1.0` |
 | 2 — Nonlinear magnetic plant | In progress | Pre-`1.0` |
 | 3 — Model-aware current control | In progress | Pre-`1.0` |
-| 4 — Local identification | Planned | Pre-`1.0` |
+| 4 — Local identification | In progress | Pre-`1.0` |
 | 5 — Adaptive global magnetic surface | Planned | Pre-`1.0` |
 | 6 — Inverter and sensor nonidealities | Planned | Pre-`1.0` |
 | 7 — Thermal and battery constraints | Planned | Pre-`1.0` |
@@ -173,6 +173,22 @@ complete Phase 3 or adaptive identification.
 - no improvement claim is made without generated evidence.
 
 ## Phase 4 — Local identification
+
+The [local identification implementation](docs/development/local-identification.md)
+now covers bounded resistance estimation, coupled flux-point acquisition,
+observable PM references, sparse fitting observations and candidate rejection.
+An ideal externally driven shaft supplies the rotating simulation conditions;
+voltage calibration and uncertainty assumptions are explicit. A reproducible
+campaign hands accepted R to the flux identifier without exposing hidden truth.
+No global fit, active-map replacement or automatic tuning is performed.
+
+The [exit-evidence matrix](docs/development/phase4-local-evidence.md) records the
+implemented scope and its limits. Phase status remains in progress pending human
+acceptance of [ADR-0010](docs/adr/0010-bounded-standstill-resistance-identification.md)
+and [ADR-0011](docs/adr/0011-observable-coupled-flux-point-acquisition.md), plus
+resolution/acceptance of earlier phase validation dependencies under roadmap
+policy. Local implementation coverage is not formal phase approval or hardware
+readiness; no exit criterion is weakened by this delivery.
 
 ### Scope
 

@@ -89,8 +89,16 @@ campaigns with transient and opt-in host timing metrics. Reported infeasible and
 unmet cases limit the qualified envelope; broader stability assessment and human
 review remain outstanding. Online adaptation is not implemented.
 
-Identification, map fitting/correction, adaptive control, nonideal
-inverters/sensors, and hardware integration remain planned. The linear
+The [local identification workflow](docs/development/local-identification.md)
+estimates stator resistance, acquires paired flux observations over sampled d/q
+current points, and obtains a PM reference under observable rotating conditions.
+Bounded native state machines, independent limits, held-out checks and conditional
+uncertainty gate each candidate. The rotating experiment uses an ideal externally
+driven shaft; sparse coverage and voltage-calibration limitations are explicit.
+It produces observations, not a fitted or automatically activated magnetic map.
+
+Global map fitting/correction, adaptive control, nonideal inverters/sensors,
+and hardware integration remain planned. The linear
 reference is a comparison baseline, not the project's primary magnetic model.
 
 ## Safety boundary

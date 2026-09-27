@@ -62,8 +62,17 @@ static namc_magnetic_state_t namc_magnetic_offset(namc_magnetic_state_t state,
     return state;
 }
 
-namc_flux_result_t namc_magnetic_step(const namc_magnetic_parameters_t *p,
-    namc_magnetic_state_t *state, namc_ab_t voltage, double load_torque, double dt)
+static namc_flux_result_t namc_magnetic_rate(const namc_magnetic_parameters_t *p,
+    const namc_magnetic_state_t *state, namc_ab_t voltage, double load, int driven,
+    namc_magnetic_state_t *rate)
+{
+    namc_flux_result_t result = namc_magnetic_derivative(p, state, voltage, load, rate);
+    if (result == NAMC_FLUX_OK && driven) { rate->speed = 0.0; }
+    return result;
+}
+
+static namc_flux_result_t namc_magnetic_integrate(const namc_magnetic_parameters_t *p,
+    namc_magnetic_state_t *state, namc_ab_t voltage, double load_torque, double dt, int driven)
 {
     namc_magnetic_state_t k1, k2, k3, k4, stage, mean, next;
     namc_flux_result_t result;
@@ -71,22 +80,22 @@ namc_flux_result_t namc_magnetic_step(const namc_magnetic_parameters_t *p,
     if (!isfinite(dt) || dt <= 0.0) {
         return NAMC_FLUX_INVALID_INPUT;
     }
-    result = namc_magnetic_derivative(p, state, voltage, load_torque, &k1);
+    result = namc_magnetic_rate(p, state, voltage, load_torque, driven, &k1);
     if (result != NAMC_FLUX_OK) {
         return result;
     }
     stage = namc_magnetic_offset(*state, k1, dt / 2.0);
-    result = namc_magnetic_derivative(p, &stage, voltage, load_torque, &k2);
+    result = namc_magnetic_rate(p, &stage, voltage, load_torque, driven, &k2);
     if (result != NAMC_FLUX_OK) {
         return result;
     }
     stage = namc_magnetic_offset(*state, k2, dt / 2.0);
-    result = namc_magnetic_derivative(p, &stage, voltage, load_torque, &k3);
+    result = namc_magnetic_rate(p, &stage, voltage, load_torque, driven, &k3);
     if (result != NAMC_FLUX_OK) {
         return result;
     }
     stage = namc_magnetic_offset(*state, k3, dt);
-    result = namc_magnetic_derivative(p, &stage, voltage, load_torque, &k4);
+    result = namc_magnetic_rate(p, &stage, voltage, load_torque, driven, &k4);
     if (result != NAMC_FLUX_OK) {
         return result;
     }
@@ -108,4 +117,16 @@ namc_flux_result_t namc_magnetic_step(const namc_magnetic_parameters_t *p,
     }
     *state = next;
     return NAMC_FLUX_OK;
+}
+
+namc_flux_result_t namc_magnetic_step(const namc_magnetic_parameters_t *p,
+    namc_magnetic_state_t *state, namc_ab_t voltage, double load_torque, double dt)
+{
+    return namc_magnetic_integrate(p, state, voltage, load_torque, dt, 0);
+}
+
+namc_flux_result_t namc_magnetic_driven_step(const namc_magnetic_parameters_t *p,
+    namc_magnetic_state_t *state, namc_ab_t voltage, double dt)
+{
+    return namc_magnetic_integrate(p, state, voltage, 0.0, dt, 1);
 }
