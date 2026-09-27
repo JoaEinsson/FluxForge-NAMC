@@ -12,6 +12,8 @@ add_library(namc_core STATIC
     src/core/reference.c
     src/core/flux_map.c
     src/core/current_tuning.c
+    src/core/resistance_id.c
+    src/core/flux_id.c
 )
 
 target_compile_features(namc_core PUBLIC c_std_11)
@@ -31,6 +33,8 @@ add_library(namc_core_binding SHARED
     src/core/reference.c
     src/core/flux_map.c
     src/core/current_tuning.c
+    src/core/resistance_id.c
+    src/core/flux_id.c
 )
 target_compile_features(namc_core_binding PUBLIC c_std_11)
 target_compile_definitions(namc_core_binding PRIVATE NAMC_CORE_SHARED_BUILD)
@@ -63,6 +67,16 @@ target_link_libraries(namc_sim PRIVATE namc_plant)
 set_target_properties(namc_sim PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
 namc_enable_strict_warnings(namc_sim)
 
+add_executable(namc_ident_sim simulations/resistance_reference.c simulations/map_transport.c)
+target_link_libraries(namc_ident_sim PRIVATE namc_plant)
+set_target_properties(namc_ident_sim PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+namc_enable_strict_warnings(namc_ident_sim)
+
+add_executable(namc_flux_ident_sim simulations/flux_identification.c simulations/map_transport.c)
+target_link_libraries(namc_flux_ident_sim PRIVATE namc_plant)
+set_target_properties(namc_flux_ident_sim PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+namc_enable_strict_warnings(namc_flux_ident_sim)
+
 # Provenance is a configure-time snapshot; reconfigure after source changes.
 set(NAMC_REVISION "unknown")
 find_package(Git QUIET)
@@ -84,6 +98,14 @@ if(Git_FOUND)
     endif()
 endif()
 target_compile_definitions(namc_sim PRIVATE
+    NAMC_BUILD_REVISION="${NAMC_REVISION}"
+    NAMC_BUILD_COMPILER="${CMAKE_C_COMPILER_ID}-${CMAKE_C_COMPILER_VERSION}"
+    NAMC_BUILD_CONFIGURATION="$<CONFIG>")
+target_compile_definitions(namc_ident_sim PRIVATE
+    NAMC_BUILD_REVISION="${NAMC_REVISION}"
+    NAMC_BUILD_COMPILER="${CMAKE_C_COMPILER_ID}-${CMAKE_C_COMPILER_VERSION}"
+    NAMC_BUILD_CONFIGURATION="$<CONFIG>")
+target_compile_definitions(namc_flux_ident_sim PRIVATE
     NAMC_BUILD_REVISION="${NAMC_REVISION}"
     NAMC_BUILD_COMPILER="${CMAKE_C_COMPILER_ID}-${CMAKE_C_COMPILER_VERSION}"
     NAMC_BUILD_CONFIGURATION="$<CONFIG>")
@@ -133,6 +155,18 @@ if(BUILD_TESTING)
     namc_enable_strict_warnings(namc_current_tuning_test)
     add_test(NAME namc_current_tuning COMMAND namc_current_tuning_test)
 
+    add_executable(namc_resistance_id_test tests/resistance_id_test.c)
+    target_link_libraries(namc_resistance_id_test PRIVATE namc_core)
+    set_target_properties(namc_resistance_id_test PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+    namc_enable_strict_warnings(namc_resistance_id_test)
+    add_test(NAME namc_resistance_identification COMMAND namc_resistance_id_test)
+
+    add_executable(namc_flux_id_test tests/flux_id_test.c)
+    target_link_libraries(namc_flux_id_test PRIVATE namc_core)
+    set_target_properties(namc_flux_id_test PROPERTIES C_EXTENSIONS OFF C_STANDARD 11 C_STANDARD_REQUIRED YES)
+    namc_enable_strict_warnings(namc_flux_id_test)
+    add_test(NAME namc_flux_identification COMMAND namc_flux_id_test)
+
     option(NAMC_REQUIRE_PYTEST "Fail configuration when pytest is unavailable" OFF)
     find_package(Python3 3.10 COMPONENTS Interpreter QUIET)
     set(NAMC_HAS_PYTEST FALSE)
@@ -156,7 +190,7 @@ if(BUILD_TESTING)
         )
         set_tests_properties(namc_python_binding PROPERTIES
             ENVIRONMENT
-                "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/python;NAMC_CORE_LIBRARY=$<TARGET_FILE:namc_core_binding>;NAMC_SIM_EXECUTABLE=$<TARGET_FILE:namc_sim>"
+                "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/python;NAMC_CORE_LIBRARY=$<TARGET_FILE:namc_core_binding>;NAMC_SIM_EXECUTABLE=$<TARGET_FILE:namc_sim>;NAMC_IDENT_EXECUTABLE=$<TARGET_FILE:namc_ident_sim>;NAMC_FLUX_IDENT_EXECUTABLE=$<TARGET_FILE:namc_flux_ident_sim>"
         )
     elseif(NAMC_REQUIRE_PYTEST)
         message(FATAL_ERROR "Python 3.10+ with pytest is required")

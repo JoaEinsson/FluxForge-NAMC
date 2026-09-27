@@ -10,6 +10,18 @@ once versioned releases begin.
 
 ### Added
 
+- Coupled flux-point and PM-reference acquisition from observable rotating
+  terminal measurements, with conditional error bounds, third-speed validation,
+  independent excitation limits and explicit voltage-calibration ambiguity.
+- An ideal externally driven nonlinear-plant experiment and bounded R-to-flux
+  campaign exporting sparse, replayable fitting observations without hidden truth,
+  interpolation, automatic gain changes or map activation.
+- Initial Phase 4 bounded stator-resistance identification in portable C, with
+  independently limited current requests, two-level estimation, reverse-current
+  holdout validation, conditional uncertainty and deterministic rejection.
+- A native nonlinear-plant identification experiment with observable-only
+  estimator inputs, explicit voltage provenance, sensor-error injection and
+  replayable Python orchestration. No automatic gain/map activation is added.
 - Separate reserve gains for tuned model-aware PI, deterministic model-loss
   transition tests, initial-speed/fault-injection experiments, transient metrics,
   opt-in host timing and a finite campaign retaining unsuccessful scenarios.

@@ -27,4 +27,11 @@ namc_flux_result_t namc_magnetic_derivative(const namc_magnetic_parameters_t *p,
 namc_flux_result_t namc_magnetic_step(const namc_magnetic_parameters_t *p,
     namc_magnetic_state_t *state, namc_ab_t voltage, double load_torque, double dt);
 
+/* Simulation-only ideal externally driven shaft: state.speed is prescribed,
+ * constant over the interval. Electrical RK4 and angle still evolve; shaft
+ * acceleration/inertia energy and transitions between speeds are NOT modeled.
+ * Represents separate settled dynamometer runs, not an on-vehicle procedure. */
+namc_flux_result_t namc_magnetic_driven_step(const namc_magnetic_parameters_t *p,
+    namc_magnetic_state_t *state, namc_ab_t voltage, double dt);
+
 #endif /* NAMC_MAGNETIC_PLANT_H */

@@ -83,3 +83,17 @@ Use `build-phase3-validation` for the [qualification follow-up](control-qualific
 The same seven CTest entries include gain separation, transition guards, metric
 oracles, replay, host-timing path counts and the 180-run synthetic campaign.
 Monotonic OS timers are linked only into `namc_sim`, never core or plant.
+
+The [initial identification slice](resistance-identification.md) uses
+`build-phase4-resistance` with the same options. It adds `namc_ident_sim` and
+the `namc_resistance_identification` native test (eight CTest entries total).
+CTest supplies `NAMC_IDENT_EXECUTABLE` alongside the existing native paths.
+The identifier links only the portable core; the experiment runner alone
+owns the hidden nonlinear plant. No new dependency is required.
+
+The [complete local acquisition workflow](local-identification.md) adds
+`namc_flux_ident_sim` and the core-only `namc_flux_identification` test, bringing
+the current total to **nine CTest entries**. CTest also supplies
+`NAMC_FLUX_IDENT_EXECUTABLE`. The same build directory/options run both Phase 4
+slices and all earlier regressions. The plant's ideal externally driven mode is
+simulation-only; neither identifier depends on plant headers or OS services.

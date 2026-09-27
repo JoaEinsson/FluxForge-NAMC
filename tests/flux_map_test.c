@@ -335,10 +335,35 @@ static int nonlinear_closed_loop(void)
     return 1;
 }
 
+static int externally_driven_plant(void)
+{
+    namc_flux_data_t data = fixture(0);
+    namc_flux_map_t map;
+    namc_magnetic_parameters_t p = {NAMC_MAGNETIC_PLANT_VERSION, &map, 0.4, 0.01, 0.001, 4U};
+    namc_magnetic_state_t s = {1.0, 2.0, 0.0, 0.0}, saved;
+    namc_ab_t voltage = {0.0, 0.0};
+    CHECK(namc_flux_map_prepare(&data, &limits, &map) == NAMC_FLUX_OK);
+    CHECK(namc_magnetic_driven_step(&p, &s, voltage, 0.00005) == NAMC_FLUX_OK);
+    CHECK(near(s.id, exp(-0.4*0.00005/0.003), 1e-11));
+    CHECK(near(s.iq, 2.0*exp(-0.4*0.00005/0.004), 1e-11));
+    CHECK(s.speed == 0.0 && s.angle == 0.0); /* External shaft absorbs torque. */
+    s.speed = -20.0; s.angle = 1.0;
+    CHECK(namc_magnetic_driven_step(&p, &s, voltage, 0.00005) == NAMC_FLUX_OK);
+    CHECK(s.speed == -20.0 && near(s.angle, 0.996, 1e-14));
+    saved = s;
+    CHECK(namc_magnetic_driven_step(&p, &s, voltage, 0.0) == NAMC_FLUX_INVALID_INPUT);
+    CHECK(s.id == saved.id && s.iq == saved.iq && s.speed == saved.speed && s.angle == saved.angle);
+    voltage.alpha = 1e9;
+    CHECK(namc_magnetic_driven_step(&p, &s, voltage, 0.00005) != NAMC_FLUX_OK);
+    CHECK(s.id == saved.id && s.iq == saved.iq && s.speed == saved.speed && s.angle == saved.angle);
+    return 1;
+}
+
 int main(void)
 {
     if (!exact_lookup() || !invalid_maps() || !scaled_solve() || !nonlinear_lookup() ||
-        !energy_consistency() || !plant_linear_limit_and_rejection() || !nonlinear_closed_loop()) {
+        !energy_consistency() || !plant_linear_limit_and_rejection() || !nonlinear_closed_loop() ||
+        !externally_driven_plant()) {
         return 1;
     }
     puts("Coupled flux LUT and nonlinear plant tests passed (synthetic evidence only).");
